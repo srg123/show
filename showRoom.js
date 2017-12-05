@@ -1,9 +1,11 @@
 
-//变量初始化定义
+if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
 var container, stats;
-var scene, gStats, gRenderer;
-var  gCameraMgr, gLightMgr, gBgMirror;
-var gCameraCtrl=undefined;
+var scene, renderer;
+var gCameraMgr;
+var camera, gLightMgr;
+var FirstPersonControls;
+var OrbitControls;
 var gDefaultTag=undefined;
 var gDropCrtl=undefined;
 var gSelectTag=null;
@@ -20,115 +22,47 @@ var gProjector = new THREE.Projector();
 var WIDTH = window.innerWidth;
 var HEIGHT = window.innerHeight;
 var groundMirrorMaterial;
+var standardMaterial, standardMaterialPremultiplied, floorMaterial;
+
+var cameraCube, sceneCube;
+var textureEquirec, textureCube, textureSphere;
+var cubeMesh, sphereMesh;
+var sphereMaterial;
+var refract;
+
+//*********************************************************************
 
 //初始化、动画
 
-    init();
-    animate();
-
+init();
+animate();
 
 function init() {
 
-
-    container = document.createElement( 'div' );
-    document.body.appendChild( container );
-
-    // scene
-   scene = new THREE.Scene();
-    //scene.background = new THREE.Color( 0x000000);
-   scene.background = new THREE.Color().setHSL( 0.6, 0, 1 );
-    // Grid
-
-    var helper = new THREE.GridHelper( 60000, 40, 0x303030, 0x303030 );
-    helper.position.y = 500;
-    scene.add( helper );
-
-
-    gRenderer = new THREE.WebGLRenderer(
-        {
-            antialias: true,
-            precision: "highp",
-            alpha: true,
-            premultipliedAlpha: false,
-            stencil: false,
-            preserveDrawingBuffer: true //是否保存绘图缓冲
-        }
-    );
-    gRenderer.sortObjects = true;
-    gRenderer.autoClear = false;
-    gRenderer.shadowMap.enabled = true;
-    gRenderer.shadowMapSoft = true;
-    gRenderer.shadowMapType = THREE.PCFSoftShadowMap;
-
-    gRenderer.setPixelRatio( window.devicePixelRatio );
-    gRenderer.setSize( window.innerWidth, window.innerHeight  );
-    //gRenderer.shadowMap.enabled = true;
-
-    gRenderer.gammaInput = true;
-    gRenderer.gammaOutput = true;
-
-    gRenderer.shadowMap.enabled = true;
-    gRenderer.shadowMap.renderReverseSided = false;
-    container.appendChild( gRenderer.domElement );
-
-    //initDefaultTag();
+    initScene();
+    initRenderer();
     initCamera();
     initLight();
-    //openVideo();
-    //initSky()
-    //creatCube();
-    fillScene();
-    eventMgr();
-    initModel()
+    loadModel();
+    home_env();
     loadObj("shinei-dimian-01");
-    // initGui();
+    backgroundFloor();
+    initEvent();
+    initHelp();
 
-    //状态栏位置信息
-    gStats = new Stats();
-    container.appendChild( gStats.dom );
-
-    gRaycaster=new THREE.Raycaster();
-
-    gDropCrtl = new THREE.TransformControls( gCameraMgr.camera, gRenderer.domElement );
-    gDropCrtl.addEventListener( 'change', gRenderer );
-   scene.add(gDropCrtl);
-
-    /*  //增加镜面材质
-     var planeGeo = new THREE.PlaneBufferGeometry(23786-800, 17717-1200);
-     gBgMirror = new THREE.Mirror (window.innerWidth*10, window.innerHeight*10, {clipBias: 0.003, color: 0x777777});
-     gBgMirror.material.side = THREE.DoubleSide;
-     var mirrorMesh = new THREE.Mesh(planeGeo, gBgMirror.material);
-     mirrorMesh.add(gBgMirror);
-     mirrorMesh.rotateX(-Math.PI / 2);
-     mirrorMesh.scale.set(1, 1, 1);
-     mirrorMesh.position.set(9650, 290, -7805+1000);
-     mirrorMesh.receiveShadow=true;
-    scene.add(mirrorMesh);*/
-
-
-}
-function render() {
-    var timer = 0.01 * Date.now();
-    camera.lookAt(scene.position );
-
-    pointLight.position.x = Math.sin( timer * 7 ) * 300;
-    pointLight.position.y = Math.cos( timer * 5 ) * 400;
-    pointLight.position.z = Math.cos( timer * 3 ) * 300;
-
-    gRenderer.render(scene, gCameraMgr.camera );
+   //
 
 }
 function animate() {
+
     requestAnimationFrame( animate );
-    var clock = new THREE.Clock();
-    var delta2 = clock.getDelta();
-    var timer = Date.now() * 0.01;
-
-    groundMirrorMaterial.updateFrame( delta2 );
-
+    stats.begin();
     render();
+    stats.end();
+
      var delta = gClock.getDelta();
-     if(gCameraCtrl && gCameraCtrl.enabled)
+
+   if(gCameraCtrl && gCameraCtrl.enabled)
      {
         gCameraCtrl.update(delta);
      }
@@ -140,18 +74,548 @@ function animate() {
 
     }
 }
+function render() {
+
+    cameraCube.rotation.copy( camera.rotation );
+    renderer.render( sceneCube, cameraCube );
+
+    renderer.render(scene, gCameraMgr.camera);
+    camera.lookAt(scene.position )
+
+}
+function initScene(){
+
+    container = document.createElement( 'div' );
+    document.body.appendChild( container );
+    // scene
+    scene = new THREE.Scene();
+    //gScene.background = new THREE.Color( 0x000000);
+   // scene.background = new THREE.Color().setHSL( 0.6, 0, 1 );
+}
+function initCamera() {
+    var nWidth= window.innerWidth;
+    var nHeight= window.innerHeight;
+    gCameraMgr=new CameraMgr(scene, renderer);
+    camera=gCameraMgr.createCamera( 70, nWidth / nHeight, 1, 10000);
+
+    camera.position.set(0, 800,0);
+    //camera.rotation.x=Math.PI * 0.47;
+
+    //第一人称摄像机
+    gCameraCtrl=gCameraMgr.createFirstCtrl();
+    {
+        gCameraCtrl.lookSpeed = 0.000001;
+        gCameraCtrl.autoForward=false;
+        gCameraCtrl.movementSpeed = 50;
+        gCameraCtrl.noFly = true ;
+        gCameraCtrl.lookVertical = true;
+        gCameraCtrl.constrainVertical = true;
+        gCameraCtrl.verticalMin = 1.5;
+        gCameraCtrl.verticalMax = 2.0;
+        gCameraCtrl.lon = 250;
+        gCameraCtrl.lat = 30;
+    }
+    gCameraCtrl.enabled=false;
+
+    //轨迹球摄像机控制器
+    gCameraCtrl=gCameraMgr.createOrbitCtrl();{
+   /*     gCameraCtrl.minPolarAngle=Math.PI * 0.01;
+        gCameraCtrl.maxPolarAngle = Math.PI * 0.47;
+        gCameraCtrl.minDistance = 1;
+        gCameraCtrl.maxDistance = 10000;
+        gCameraCtrl.enableKeys=false;*/
+        gCameraCtrl.minPolarAngle=Math.PI * 0.01;
+        gCameraCtrl.maxPolarAngle = 0.9 * Math.PI / 2;
+       // gCameraCtrl.maxPolarAngle = Math.PI * 0.47;
+        gCameraCtrl.target.set( 0, 30, 0);
+        gCameraCtrl.maxDistance = 300;
+        gCameraCtrl.minDistance = 30;
+        gCameraCtrl.update();
+    }
+    gCameraCtrl.enabled=true;
+}
+function initLight() {
+
+    ambient = new THREE.AmbientLight(0xffffff );
+    scene.add( ambient );
+    //自动行走
+    guide = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({color: 0xffffff}));
+    guide.position.set(1500, 900, -6000);
+    guide.castShadow=true;
+    guide.receiveShadow=true;
+    scene.add(guide);
+    /*
+     gLightMgr=new LightMgr(gScene, false);
+     //gLightMgr.isHelper=true;
+     var ambient=gLightMgr.addAmbientLight(0xffffffff, 1.0);
+
+
+     var spotPos=[
+     {"x":1500,       "y":2000,   "z": -3000}
+     // {"x":6500,      "y":3000,   "z": -6000},
+     // {"x":12500,     "y":3000,   "z": -8000},
+     //{"x":18500,     "y":3000,   "z": -8000},
+     ];
+     var spotParam=[
+     {"castShadow":true, "mapW":104, "mapH":104, "mapN":104,"mapFar":104,"mapFov":104,"target":null},
+     {"castShadow":true, "mapW":104, "mapH":104, "mapN":104,"mapFar":104,"mapFov":104,"target":null},
+     {"castShadow":true, "mapW":104, "mapH":104, "mapN":104,"mapFar":104,"mapFov":104,"target":null},
+     {"castShadow":true, "mapW":104, "mapH":104, "mapN":104,"mapFar":104,"mapFov":104,"target":null}
+     ];
+
+     for(var i in spotPos){
+     var light=gLightMgr.addSpotLight(0xffffff, 8.5, 8500);
+     //开启阴影
+     light.castShadow = spotParam[i].castShadow;
+     light.position.set( spotPos[i].x, spotPos[i].y, spotPos[i].z );
+     light.target.position.set(spotPos[i].x, spotPos[i].y-500, spotPos[i].z);//=guide;
+     light.penumbra = 0.05;
+     light.decay = 2;
+     light.angle=Math.PI/3;
+     light.intensity=1.2;
+
+
+     var lightMesh = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial({color: 0x00ff00}));
+     lightMesh.position.set(1500, 350, -3000);
+    scene.add(lightMesh);
+     light.target=lightMesh;
+
+
+     // light.penumbra =1;
+     // light.decay=2;
+     }
+     */
+    //半球光
+/*
+    hemiLight = new THREE.HemisphereLight( 0xffffff, 0xffffff, 0.6 );
+    hemiLight.color.setHSL( 0.6, 1, 0.6 );
+    hemiLight.groundColor.setHSL( 0.095, 1, 0.75 );
+    hemiLight.position.set( 0, 50, 0 );
+    scene.add( hemiLight );
+*/
+
+   // hemiLightHelper = new THREE.HemisphereLightHelper( hemiLight, 10 );
+   // scene.add( hemiLightHelper );
+
+
+    // var  dirLight, dirLightHeper, hemiLight, hemiLightHelper;
+    //方向光
+/*    dirLight = new THREE.DirectionalLight( 0xffffff, 1 );
+    dirLight.color.setHSL( 0.1, 1, 0.95 );
+    dirLight.position.set( -1, 100, 1 );
+    dirLight.position.multiplyScalar( 30 );
+    scene.add( dirLight );
+
+    dirLight.castShadow = true;
+
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+
+    var d = 50;
+
+    dirLight.shadow.camera.left = -d;
+    dirLight.shadow.camera.right = d;
+    dirLight.shadow.camera.top = d;
+    dirLight.shadow.camera.bottom = -d;
+
+    dirLight.shadow.camera.far = 3500;
+    dirLight.shadow.bias = -0.0001;
+
+    */
+
+    //点光源扩展
+    pointLight = new THREE.PointLight(0xcccccc, 1.7, 1000);
+    pointLight.position.set(0,20,0);
+    pointLight.castShadow = true;
+    scene.add( pointLight);
+  //  scene.add(new THREE.PointLightHelper(pointLight,5));
+
+   // var light2 = new THREE.DirectionalLight( 0xaabbff, 1 );
+   // light2.position.x = 300;
+   // light2.position.y = 250;
+   // light2.position.z = -500;
+  //  scene.add( light2 );
+  //  dirLightHeper = new THREE.DirectionalLightHelper( light2, 50 )
+   // scene.add( dirLightHeper );
+
+}
+function initRenderer(){
+
+    renderer = new THREE.WebGLRenderer(
+        {
+            antialias: true
+           // precision: "highp",
+            //alpha: true,
+           // premultipliedAlpha: false,
+           // stencil: false,
+           // preserveDrawingBuffer: true //是否保存绘图缓冲
+        }
+    );
+    //renderer.sortObjects = true;
+    //renderer.autoClear = true;
+    //renderer.shadowMap.enabled = true;
+    //renderer.shadowMapSoft = true;
+    //renderer.shadowMapType = THREE.PCFSoftShadowMap;
+
+    renderer.setPixelRatio( window.devicePixelRatio );
+    renderer.setSize( window.innerWidth, window.innerHeight  );
+
+    //renderer.gammaInput = true;
+    //renderer.gammaOutput = true;
+    //renderer.shadowMap.renderReverseSided = false;
+    renderer.autoClear = false;
+    renderer.setFaceCulling( THREE.CullFaceNone );
+
+    container.appendChild( renderer.domElement );
+}
+function loadModel() {
+
+   // model
+    if(gModelList.length<(gnModelIndex+1))
+    {
+        return;
+    }
+    var jsObj=gModelList[gnModelIndex];
+
+    var objKzt = gModelList[6];
+    console.log(objKzt);
+
+    var onProgress = function ( xhr ) {
+        if ( xhr.lengthComputable ) {
+            var percentComplete = xhr.loaded / xhr.total * 100;
+            console.log( Math.round(percentComplete, 2) + '% downloaded' );
+        }
+    };
+
+    var onError = function ( xhr ) { };
+
+    var texture = new THREE.Texture( generateTexture() );
+    texture.needsUpdate = true;
+
+    THREE.Loader.Handlers.add( /\.dds$/i, new THREE.DDSLoader() );
+
+    var mtlLoader = new THREE.MTLLoader();
+    var sObjUrl="3d_files/obj/"+jsObj.model+"/";
+    mtlLoader.setPath(sObjUrl);
+    mtlLoader.load( jsObj.model+'.mtl', function( materials ) {
+
+        materials.transparent = true;
+        materials.opacity = .8;
+        materials.map = texture;
+        materials.color = 0xddddd;
+        // materials.specular = 0x009900;
+        // materials.shininess = 30;
+        // materials.flatShading = true;
+        // materials.emissive = 0xff0000;
+        // materials.shininess = 10;
+        // materials.preload();
+         //materials.flatShading = THREE.SmoothShading;
+         materials.shininess = 0;
+
+        var objLoader = new THREE.OBJLoader();
+        objLoader.setMaterials( materials );
+        var sObjUrl="3d_files/obj/"+jsObj.model+"/";
+        objLoader.setPath(sObjUrl);
+        objLoader.load(jsObj.model+'.obj', function ( object ) {
+
+            //group = new THREE.Group();
+            //group.position.y = 50;
+            //scene.add(group);
+
+            object.traverse( function ( child ) {
+
+                if ( child instanceof THREE.Mesh ) {
+                    // child.material.map = texture;
+                    child.castShadow =true;
+                    child.receiveShadow =true;
+
+                    child.updateMatrix();
+
+                  //  var boxHelper = new THREE.BoundingBoxHelper(child, 0x999999);
+                    //gScene.add(boxHelper);
+
+
+                }
+                if(jsObj.isSelect){
+                    gModeMap[object.uuid]=jsObj;
+                    gSelectList.push(object);
+                }
+
+
+            } );
+
+            object.shading= THREE.FlatShading;
+            object.scale.x = object.scale.y = object.scale.z = 0.01;
+            object.position.set(-97, 0, 68);
+            object.updateMatrix();
+
+            if(jsObj===objKzt ){
+                object.position.set(-97, 1, 68);
+            }
+
+
+            scene.add( object );
+            gnModelIndex++;
+            loadModel();
+
+        }, onProgress, onError );
+
+    });
+
+
+
+}
+function loadObj(sName) {
+
+    group = new THREE.Group();
+    //group.position.y = 50;
+     scene.add(group);
+
+   var groundMirror = new THREE.Mirror( 236, 167, {
+        clipBias: 0.001,
+        textureWidth: WIDTH * window.devicePixelRatio,
+        textureHeight: HEIGHT * window.devicePixelRatio,
+        color: 0x777777
+    } );
+    groundMirror.rotateX( - Math.PI / 2 );
+    groundMirror.material.side = THREE.DoubleSide;
+    groundMirror.receiveShadow=true;
+    group.add( groundMirror );
+
+    //make floor
+    //var planeGeo = new THREE.PlaneBufferGeometry( 236, 167 );
+    //var mirrorMesh = new THREE.Mesh( planeGeo, groundMirror.material );
+    //mirrorMesh.add(groundMirror);
+    //mirrorMesh.rotation.set(Math.PI / 4, 100, 0);
+   // groundMirror.rotateX( Math.PI / 2 );
+   // group.add(mirrorMesh);
+
+
+    // texture
+
+    var manager = new THREE.LoadingManager();
+    manager.onProgress = function ( item, loaded, total ) {
+
+        console.log( item, loaded, total );
+    };
+
+    var texture = new THREE.Texture();
+    var onProgress = function ( xhr ) {
+        if ( xhr.lengthComputable ) {
+            var percentComplete = xhr.loaded / xhr.total * 100;
+            console.log( Math.round(percentComplete, 2) + '% downloaded' );
+        }
+    };
+    var onError = function ( xhr ) {
+    };
+
+    var loader = new THREE.ImageLoader( manager );
+    var imgUrl="3d_files/Mirror/"+sName+"/";
+    loader.load( imgUrl+"maps/"+sName+'.jpg', function ( image ) {
+        texture.image = image;
+        texture.needsUpdate = true;
+
+    } );
+
+    var textureLoader2 = new THREE.TextureLoader();
+
+    lightMap = textureLoader2.load( "3d_files/Mirror/shinei-dimian-01/maps/shinei-dimian-03.png" );
+
+    var loader = new THREE.OBJLoader( manager );
+    var sObjUrl="3d_files/Mirror/"+sName+"/";
+    loader.load( sObjUrl+sName+'.obj', function ( object ) {
+
+        object.traverse( function ( child ) {
+
+            if ( child instanceof THREE.Mesh ) {
+
+                    //child.material = gBgMirror.material;
+                    child.material.needsUpdate = true;
+                    child.material.map = texture;
+                    //child.material.envMap = textureCube;
+                    child.lightMap = lightMap;
+                    child.material.transparent=true;
+                    child.material.opacity= 0.8;
+                    child.receiveShadow =true;
+                    child.position.set(-97,0,68);
+                    child.scale.x =  child.scale.y =  child.scale.z = 0.01;
+                    child.updateMatrix();
+
+            }
+
+        } );
+
+        object.position.y = -2;
+        group.add( object );
+
+    }, onProgress, onError );
+
+
+
+}
+function home_env(){
+    cameraCube = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 1, 100000 );
+    sceneCube = new THREE.Scene();
+
+    // Textures
+    var r = "3d_files/texture/cube/Bridge2/";
+    var urls = [ r + "posx.jpg", r + "negx.jpg",
+        r + "posy.jpg", r + "negy.jpg",
+        r + "posz.jpg", r + "negz.jpg" ];
+
+    var r2 = "3d_files/texture/cube/MilkyWay/";
+    var urls2 = [ r2 + "dark-s_px.jpg", r2 + "dark-s_nx.jpg",
+        r2 + "dark-s_py.jpg", r2 + "dark-s_ny.jpg",
+        r2 + "dark-s_pz.jpg", r2 + "dark-s_nz.jpg" ];
+
+    textureCube = new THREE.CubeTextureLoader().load( urls2 );
+    textureCube.format = THREE.RGBFormat;
+    textureCube.mapping = THREE.CubeReflectionMapping;
+
+
+    var textureLoader = new THREE.TextureLoader();
+
+    textureEquirec = textureLoader.load( "3d_files/texture/2294472375_24a3b8ef46_o.jpg" );
+    textureEquirec.mapping = THREE.EquirectangularReflectionMapping;
+    textureEquirec.magFilter = THREE.LinearFilter;
+    textureEquirec.minFilter = THREE.LinearMipMapLinearFilter;
+
+    textureSphere = textureLoader.load( "3d_files/texture/metal.jpg" );
+    textureSphere.mapping = THREE.SphericalReflectionMapping;
+
+
+    // Materials
+
+    var equirectShader = THREE.ShaderLib[ "equirect" ];
+
+    var equirectMaterial = new THREE.ShaderMaterial( {
+        fragmentShader: equirectShader.fragmentShader,
+        vertexShader: equirectShader.vertexShader,
+        uniforms: equirectShader.uniforms,
+        depthWrite: false,
+        side: THREE.BackSide
+    } );
+
+    equirectMaterial.uniforms[ "tEquirect" ].value = textureEquirec;
+
+    var cubeShader = THREE.ShaderLib[ "cube" ];
+    var cubeMaterial = new THREE.ShaderMaterial( {
+        fragmentShader: cubeShader.fragmentShader,
+        vertexShader: cubeShader.vertexShader,
+        uniforms: cubeShader.uniforms,
+        depthWrite: false,
+        side: THREE.BackSide
+    } );
+
+    cubeMaterial.uniforms[ "tCube" ].value = textureCube;
+
+
+    // Skybox
+
+    cubeMesh = new THREE.Mesh( new THREE.BoxBufferGeometry( 100, 100, 100 ), cubeMaterial );
+    sceneCube.add( cubeMesh );
+
+}
+function backgroundFloor(){
+
+    var objects = [], materials2 = [];
+
+    var texture2 = new THREE.Texture( generateTexture() );
+    texture2.needsUpdate = true;
+
+    materials2.push( new THREE.MeshLambertMaterial( { map: texture2, transparent: true } ) );
+    materials2.push( new THREE.MeshLambertMaterial( { color: 0xdddddd } ) );
+    materials2.push( new THREE.MeshPhongMaterial( { color: 0xdddddd, specular: 0x009900, shininess: 30, flatShading: true } ) );
+    materials2.push( new THREE.MeshNormalMaterial() );
+    materials2.push( new THREE.MeshBasicMaterial( { color: 0xffaa00, transparent: true, blending: THREE.AdditiveBlending } ) );
+    materials2.push( new THREE.MeshBasicMaterial( { color: 0xff0000, blending: THREE.SubtractiveBlending } ) );
+
+    materials2.push( new THREE.MeshLambertMaterial( { color: 0xdddddd } ) );
+    materials2.push( new THREE.MeshPhongMaterial( { color: 0xdddddd, specular: 0x009900, shininess: 30, map: texture2, transparent: true } ) );
+    materials2.push( new THREE.MeshNormalMaterial( { flatShading: true } ) );
+    materials2.push( new THREE.MeshBasicMaterial( { color: 0xffaa00, wireframe: true } ) );
+
+    materials2.push( new THREE.MeshDepthMaterial() );
+
+    materials2.push( new THREE.MeshLambertMaterial( { color: 0x666666, emissive: 0xff0000 } ) );
+    materials2.push( new THREE.MeshPhongMaterial( { color: 0x000000, specular: 0x666666, emissive: 0xff0000, shininess: 10, opacity: 0.9, transparent: true } ) );
+
+    materials2.push( new THREE.MeshBasicMaterial( { map: texture2, transparent: true } ) );
+
+   /* backgroundMaterial = new THREE.MeshStandardMaterial( {
+        //transparent: true,
+       // opacity : .1,
+        map: null,            //纹理贴图颜色由diffuse .color调制
+        roughnessMap: null, //该纹理的绿色通道用于改变材料的粗糙度。
+        //color: 0x888888,
+        metalness: 0.0,    //改变材质的金属性
+        roughness: 1.0,
+        //side: THREE.DoubleSide
+        side: THREE.BackSide
+    } );*/
+
+   var textureLoader = new THREE.TextureLoader();
+    textureLoader.load( "3d_files/texture/bk/00002VRay.jpg", function( map ) {
+          // map.wrapS = THREE.RepeatWrapping;
+          // map.wrapT = THREE.RepeatWrapping;
+          // map.anisotropy = 16;
+          // map.repeat.set(0.0005, 0.0005);
+           materials2[6].map = map;
+           materials2[6].needsUpdate = true;
+    } );
+   // var geometry = new THREE.SphereBufferGeometry( 500, 6, 4 );
+    //geometry.scale( - 1, 1, 1 );
+    var geometry = new THREE.BoxBufferGeometry( 10000, 0, 10000 );
+    var mesh = new THREE.Mesh( geometry,materials2[6] );
+    mesh.position.y = -1;
+    //mesh.rotation.x = - Math.PI * 0.5;
+    mesh.receiveShadow = true;
+    scene.add( mesh );
+}
+function initEvent(){
+    window.addEventListener( 'resize', onWindowResize, false );
+    document.addEventListener('click', onDocumentClick, false);
+    document.addEventListener( 'keydown', onKeyDown, false );
+    document.addEventListener( 'keyup', onKeyUp, false );
+    document.addEventListener('mousemove', onDocumentMouseMove, false);
+    document.addEventListener("contextmenu", onContextmenu, false);
+}
+function initHelp(){
+
+    var axisHelper = new THREE.AxisHelper(800);
+    scene.add(axisHelper);
+    //状态栏位置信息
+    stats = new Stats();
+    container.appendChild( stats.dom );
+
+    gRaycaster=new THREE.Raycaster();
+
+    gDropCrtl = new THREE.TransformControls( gCameraMgr.camera, renderer.domElement );
+    gDropCrtl.addEventListener( 'change', renderer );
+    scene.add(gDropCrtl);
+
+    var info = document.createElement( 'div' );
+    info.style.position = 'absolute';
+    info.style.top = '10px';
+    info.style.width = '100%';
+    info.style.textAlign = 'center';
+    info.innerHTML = 'Drag to change the view';
+    container.appendChild( info );
+
+
+}
 function fillScene() {
 
 
-    //var gui = new dat.GUI();
-    var decalNormal = new THREE.TextureLoader().load( '../../showroom/3d_files/texture/decal/decal-normal2.jpg' );
+    var gui = new dat.GUI();
+    var decalNormal = new THREE.TextureLoader().load( '3dfils/decal/decal-normal.jpg' );
 
-    var decalDiffuse = new THREE.TextureLoader().load( '../../showroom/3d_files/texture/decal/decal-diffuse2.png' );
+    var decalDiffuse = new THREE.TextureLoader().load( '3dfils/decal/decal-diffuse.png' );
     decalDiffuse.wrapS = decalDiffuse.wrapT = THREE.RepeatWrapping;
 
-    var planeGeo = new THREE.PlaneBufferGeometry(23786-800, 17717-1200);
+    var planeGeo = new THREE.PlaneBufferGeometry(800, 1200);
     // MIRROR planes
-    var groundMirror = new THREE.MirrorRTT( 100, 100, { clipBias: 0.007, textureWidth: WIDTH, textureHeight: HEIGHT } );
+    var groundMirror = new THREE.MirrorRTT( 100, 100, { clipBias: 0.003, textureWidth: WIDTH, textureHeight: HEIGHT } );
 
     var mask = new THREE.SwitchNode( new THREE.TextureNode( decalDiffuse ), 'w' );
     var maskFlip = new THREE.Math1Node( mask, THREE.Math1Node.INVERT );
@@ -198,7 +662,7 @@ function fillScene() {
 
     groundMirrorMaterial = new THREE.PhongNodeMaterial();
     groundMirrorMaterial.environment = blurMirror; // or add "mirror" variable to disable blur
-    groundMirrorMaterial.environmentAlpha = mask;
+    //groundMirrorMaterial.environmentAlpha = mask;
     groundMirrorMaterial.normal = normal;
     //groundMirrorMaterial.normalScale = new THREE.FloatNode( 1 );
     groundMirrorMaterial.build();
@@ -213,52 +677,6 @@ function fillScene() {
 
 
 
-   /* // walls
-    var planeTop = new THREE.Mesh( planeGeo, new THREE.MeshPhongMaterial( { color: 0xffffff } ) );
-    planeTop.position.y = 100;
-    planeTop.rotateX( Math.PI / 2 );
-   scene.add( planeTop );
-
-    var planeBack = new THREE.Mesh( planeGeo, new THREE.MeshPhongMaterial( { color: 0xffffff } ) );
-    planeBack.position.z = -50;
-    planeBack.position.y = 50;
-   scene.add( planeBack );
-
-    var planeFront = new THREE.Mesh( planeGeo, new THREE.MeshPhongMaterial( { color: 0x7f7fff } ) );
-    planeFront.position.z = 50;
-    planeFront.position.y = 50;
-    planeFront.rotateY( Math.PI );
-   scene.add( planeFront );
-
-    var planeRight = new THREE.Mesh( planeGeo, new THREE.MeshPhongMaterial( { color: 0x00ff00 } ) );
-    planeRight.position.x = 50;
-    planeRight.position.y = 50;
-    planeRight.rotateY( - Math.PI / 2 );
-   scene.add( planeRight );
-
-    var planeLeft = new THREE.Mesh( planeGeo, new THREE.MeshPhongMaterial( { color: 0xff0000 } ) );
-    planeLeft.position.x = -50;
-    planeLeft.position.y = 50;
-    planeLeft.rotateY( Math.PI / 2 );
-   scene.add( planeLeft );
-
-    // lights
-    var mainLight = new THREE.PointLight( 0xcccccc, 1.5, 250 );
-    mainLight.position.y = 60;
-   scene.add( mainLight );
-
-    var greenLight = new THREE.PointLight( 0x00ff00, 0.25, 1000 );
-    greenLight.position.set( 550, 50, 0 );
-   scene.add( greenLight );
-
-    var redLight = new THREE.PointLight( 0xff0000, 0.25, 1000 );
-    redLight.position.set( - 550, 50, 0 );
-   scene.add( redLight );
-
-    var blueLight = new THREE.PointLight( 0x7f7fff, 0.25, 1000 );
-    blueLight.position.set( 0, 50, 550 );
-   scene.add( blueLight );*/
-
 }
 function initDefaultTag() {
 
@@ -271,208 +689,6 @@ function initDefaultTag() {
     gDefaultTag.receiveShadow=true;
    scene.add( gDefaultTag );
 }
-function initCamera() {
-    var nWidth= window.innerWidth;
-    var nHeight= window.innerHeight;
-    gCameraMgr=new CameraMgr(scene, gRenderer);
-    camera=gCameraMgr.createCamera( 65, nWidth / nHeight, 10, 68000);
-
-    camera.position.set(0, 5000, 12000);
-    camera.rotation.x=Math.PI * 0.47;
-
-    //第一人称摄像机
-    gCameraCtrl=gCameraMgr.createFirstCtrl();
-    {
-        gCameraCtrl.lookSpeed = 0.0325;
-        gCameraCtrl.autoForward=false;
-        gCameraCtrl.movementSpeed = 2500;
-        gCameraCtrl.noFly = true ;
-        gCameraCtrl.lookVertical = true;
-        gCameraCtrl.constrainVertical = true;
-        gCameraCtrl.verticalMin = 1.5;
-        gCameraCtrl.verticalMax = 2.0;
-        gCameraCtrl.lon = 250;
-        gCameraCtrl.lat = 30;
-    }
-    gCameraCtrl.enabled=false;
-
-    //轨迹球摄像机控制器
-    gCameraCtrl=gCameraMgr.createOrbitCtrl();
-    {
-        gCameraCtrl.minPolarAngle=Math.PI * 0.01;
-        gCameraCtrl.maxPolarAngle = Math.PI * 0.47;
-        gCameraCtrl.minDistance = 1;
-        gCameraCtrl.maxDistance = 68000;
-        gCameraCtrl.enableKeys=false;
-    }
-    gCameraCtrl.enabled=true;
-}
-function initLight() {
-    //自动行走
-    guide = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({color: 0xffffff}));
-    guide.position.set(1500, 900, -6000);
-    guide.castShadow=true;
-    guide.receiveShadow=true;
-   scene.add(guide);
-
-    gLightMgr=new LightMgr(scene, false);
-    //gLightMgr.isHelper=true;
-    var ambient=gLightMgr.addAmbientLight(0xffffffff, 1.0);
-/*
-    gLightMgr=new LightMgr(scene, false);
-    //gLightMgr.isHelper=true;
-    var ambient=gLightMgr.addAmbientLight(0xffffffff, 1.0);
-
-
-
-    var spotPos=[
-        {"x":1500,       "y":2000,   "z": -3000}
-        // {"x":6500,      "y":3000,   "z": -6000},
-        // {"x":12500,     "y":3000,   "z": -8000},
-        //{"x":18500,     "y":3000,   "z": -8000},
-    ];
-    var spotParam=[
-        {"castShadow":true, "mapW":104, "mapH":104, "mapN":104,"mapFar":104,"mapFov":104,"target":null},
-        {"castShadow":true, "mapW":104, "mapH":104, "mapN":104,"mapFar":104,"mapFov":104,"target":null},
-        {"castShadow":true, "mapW":104, "mapH":104, "mapN":104,"mapFar":104,"mapFov":104,"target":null},
-        {"castShadow":true, "mapW":104, "mapH":104, "mapN":104,"mapFar":104,"mapFov":104,"target":null}
-    ];
-
-    for(var i in spotPos){
-        var light=gLightMgr.addSpotLight(0xffffff, 8.5, 8500);
-        //开启阴影
-        light.castShadow = spotParam[i].castShadow;
-        light.position.set( spotPos[i].x, spotPos[i].y, spotPos[i].z );
-        light.target.position.set(spotPos[i].x, spotPos[i].y-500, spotPos[i].z);//=guide;
-        light.penumbra = 0.05;
-        light.decay = 2;
-        light.angle=Math.PI/3;
-        light.intensity=1.2;
-
-
-        var lightMesh = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial({color: 0x00ff00}));
-        lightMesh.position.set(1500, 350, -3000);
-       scene.add(lightMesh);
-        light.target=lightMesh;
-
-
-        // light.penumbra =1;
-        // light.decay=2;
-    }
-*/
-    //半球光
-    hemiLight = new THREE.HemisphereLight( 0xffffff, 0xffffff, 0.6 );
-    hemiLight.color.setHSL( 0.6, 1, 0.6 );
-    hemiLight.groundColor.setHSL( 0.095, 1, 0.75 );
-    hemiLight.position.set( 0, 500, 0 );
-  // scene.add( hemiLight );
-    //scene.add( hemiLight.target );
-    //scene.add( hemiLight );
-
-
-/*  hemiLight = new THREE.HemisphereLight( 0x00ffaa, 0xffffff, 1 );
-    hemiLight.color.setHSL( 0.125, 1, 0.4 );
-    hemiLight.groundColor.setHSL( 0.025, 1, 0.173 );
-    hemiLight.position.set( 0, 500, 0 );*/
-
-
-    hemiLightHelper = new THREE.HemisphereLightHelper( hemiLight, 10 );
-  // scene.add( hemiLightHelper );
-
-
-   // var  dirLight, dirLightHeper, hemiLight, hemiLightHelper;
-    //方向光
-    dirLight = new THREE.DirectionalLight( 0xffffff, 1 );
-    dirLight.color.setHSL( 0.1, 1, 0.95 );
-    dirLight.position.set( -1, 100, 1 );
-    dirLight.position.multiplyScalar( 30 );
-    //scene.add( dirLight );
-
-    dirLight.castShadow = true;
-
-    dirLight.shadow.mapSize.width = 2048;
-    dirLight.shadow.mapSize.height = 2048;
-
-    var d = 50;
-
-    dirLight.shadow.camera.left = -d;
-    dirLight.shadow.camera.right = d;
-    dirLight.shadow.camera.top = d;
-    dirLight.shadow.camera.bottom = -d;
-
-    dirLight.shadow.camera.far = 3500;
-    dirLight.shadow.bias = -0.0001;
-   //scene.add( dirLight );
-
-    dirLightHeper = new THREE.DirectionalLightHelper( dirLight, 500 )
-   //scene.add( dirLightHeper );
-/*
-    //平行光
-    dirLight = new THREE.DirectionalLight( 0xff1100, 1.75 );
-    dirLight.position.set( 50, 2000, 100 );
-    dirLight.position.multiplyScalar( 1.3 );
-
-    dirLight.castShadow = true;
-    //light.shadowCameraVisible = true;
-
-    dirLight.shadowMapWidth = 1024;
-    dirLight.shadowMapHeight = 1024;
-    //scene.add( dirLight );
-
-    dirLightHeper = new THREE.DirectionalLightHelper( dirLight, 500 )
-   //scene.add( dirLightHeper );
-*/
-    //点光
-/*    pointLight = new THREE.PointLight( 0xffffff, 1,3000);
-    pointLight.position.set( 6000, 2500, -1500 );
-    // light representation
-    var sphere = new THREE.SphereGeometry( 100, 16, 8 );
-    var mesh = new THREE.Mesh( sphere, new THREE.MeshPhongMaterial( { color: 0xffa00 } ) );
-    mesh.scale.set( 0.1, 0.1, 0.1 );
-    pointLight.add( mesh );
-    camera.add( pointLight );*/
-    //scene.add(pointLight);
-
-    pointLight = new THREE.PointLight( 0xffffff, 1,3000 );
-    pointLight.position.set( 6000, 2500, -1500 );
-    scene.add( pointLight );
-    pointLight.add( new THREE.Mesh( new THREE.SphereGeometry( 4, 8, 8 ), new THREE.MeshBasicMaterial( { color: 0xffffff } ) ) );
-
-    var pointLightHelper = new THREE.PointLightHelper(pointLight, 50); // 50 is sphere size
-    scene.add(pointLightHelper);
-    updateShadowCamera();
-
-}
-function updateShadowCamera() {
-
-    //var center = floorplan.getCenter();
-    var pos = new THREE.Vector3(6000, 2500, -2500);
-    dirLight.position.copy(pos);
-   // dirLight.target.position.copy(center);
-    dirLight.updateMatrix();
-    //dirLight.updateWorldMatrix();
-    dirLight.shadowCameraLeft = -d;
-    dirLight.shadowCameraRight = d;
-    dirLight.shadowCameraTop = d;
-    dirLight.shadowCameraBottom = -d;
-
-    var d = 300;
-
-    dirLight.shadowCameraLeft = -d;
-    dirLight.shadowCameraRight = d;
-    dirLight.shadowCameraTop = d;
-    dirLight.shadowCameraBottom = -d;
-    dirLight.shadowCameraFar = 1000;
-    dirLight.shadowDarkness = 0.5;
-
-    if (dirLight.shadowCamera) {
-        dirLight.shadowCamera.left = dirLight.shadowCameraLeft;
-        dirLight.shadowCamera.right = dirLight.shadowCameraRight;
-        dirLight.shadowCamera.top = dirLight.shadowCameraTop;
-        dirLight.shadowCamera.bottom = dirLight.shadowCameraBottom;
-        dirLight.shadowCamera.updateProjectionMatrix();
-    }
-}
 function initSky(){
     var vertexShader = document.getElementById( 'vertexShader' ).textContent;
     var fragmentShader = document.getElementById( 'fragmentShader' ).textContent;
@@ -484,7 +700,7 @@ function initSky(){
     };
     uniforms.topColor.value.copy( hemiLight.color );
 
-    //scene.fog.color.copy( uniforms.bottomColor.value );
+    //gScene.fog.color.copy( uniforms.bottomColor.value );
 
     var skyGeo = new THREE.SphereGeometry( 30000, 320, 150 );
     var skyMat = new THREE.ShaderMaterial( { vertexShader: vertexShader, fragmentShader: fragmentShader, uniforms: uniforms, side: THREE.BackSide } );
@@ -493,12 +709,7 @@ function initSky(){
    scene.add( sky );
 }
 function eventMgr() {
-    window.addEventListener( 'resize', onWindowResize, false );
-    document.addEventListener('click', onDocumentClick, false);
-    document.addEventListener( 'keydown', onKeyDown, false );
-    document.addEventListener( 'keyup', onKeyUp, false );
-    document.addEventListener('mousemove', onDocumentMouseMove, false);
-    document.addEventListener("contextmenu", onContextmenu, false);
+
 }
 function onDocumentMouseDown(event ) {
 
@@ -529,7 +740,11 @@ function onDocumentMouseMove(event) {
 function onWindowResize() {
     gCameraMgr.camera.aspect = window.innerWidth / window.innerHeight;
     gCameraMgr.camera.updateProjectionMatrix();
-    gRenderer.setSize( window.innerWidth, window.innerHeight );
+
+    cameraCube.aspect = window.innerWidth / window.innerHeight;
+    cameraCube.updateProjectionMatrix();
+
+    renderer.setSize( window.innerWidth, window.innerHeight );
     if(gCameraCtrl ){
         if (gCameraCtrl.persCtrl && gCameraCtrl.persCtrl.enabled){
             gCameraCtrl.persCtrl.handleResize();
@@ -545,182 +760,12 @@ function onWindowResize() {
 function onKeyDown(event) {
     // if (event.keyCode == 188 && event.ctrlKey)
     // {
-    //     gCameraMgr.currentCamera.position.y -=10;
+    //     camera.currentCamera.position.y -=10;
     //     log(event.keyCode);
     // }
-
- /*   keyboard[event.keyCode] = true;
-    scope.needsUpdate();*/
 }
 function onKeyUp(event) {
     log(event.keyCode);
-/*    keyboard[event.keyCode] = false;
-    scope.needsUpdate();
-
-    //扩展灯光控制按钮
-    switch ( event.keyCode ) {
-
-        case 72: *//*h*//*
-
-            hemiLight.visible = !hemiLight.visible;
-            break;
-
-        case 68: *//*d*//*
-
-            dirLight.visible = !dirLight.visible;
-            break;
-        case 80: *//*p*//*
-
-            pointLight.visible = ! pointLight.visible;
-            break;
-
-    }*/
-}
-function initModel(){
-    // model
-    if(gModelList.length<(gnModelIndex+1))
-    {
-        return;
-    }
-    var jsObj=gModelList[gnModelIndex];
-
-    var onProgress = function ( xhr ) {
-        if ( xhr.lengthComputable ) {
-            var percentComplete = xhr.loaded / xhr.total * 100;
-            console.log( Math.round(percentComplete, 2) + '% downloaded' );
-        }
-    };
-
-    var onError = function ( xhr ) { };
-
-    var texture = new THREE.Texture( generateTexture() );
-    texture.needsUpdate = true;
-
-    THREE.Loader.Handlers.add( /\.dds$/i, new THREE.DDSLoader() );
-
-    var mtlLoader = new THREE.MTLLoader();
-    var sObjUrl="3d_files/obj/"+jsObj.model+"/";
-    mtlLoader.setPath(sObjUrl);
-    mtlLoader.load( jsObj.model+'.mtl', function( materials ) {
-
-        materials.transparent = true;
-        materials.opacity = .8;
-        materials.map = texture;
-        materials.color = 0xddddd;
-        materials.specular = 0x009900;
-        materials.shininess = 30;
-        materials.flatShading = true;
-        materials.emissive = 0xff0000;
-        materials.shininess = 10;
-        // materials.preload();
-
-        var objLoader = new THREE.OBJLoader();
-        objLoader.setMaterials( materials );
-        var sObjUrl="3d_files/obj/"+jsObj.model+"/";
-        objLoader.setPath(sObjUrl);
-        objLoader.load(jsObj.model+'.obj', function ( object ) {
-
-            //group = new THREE.Group();
-            //group.position.y = 50;
-            //scene.add(group);
-
-            object.traverse( function ( child ) {
-
-                if ( child instanceof THREE.Mesh ) {
-                    // child.material.map = texture;
-                    child.castShadow =true;
-                    child.receiveShadow =true;
-
-                }
-                if(jsObj.isSelect){
-                    gModeMap[object.uuid]=jsObj;
-                    gSelectList.push(object);
-                }
-
-               scene.add( object);
-                //child.matrixAutoUpdate = false;
-                // child.updateMatrix();
-                //BoundingBoxHelper
-                var boxHelper = new THREE.BoundingBoxHelper(object, 0x999999);
-               scene.add(boxHelper);
-
-                gnModelIndex++;
-                initModel();
-
-            } );
-            //object.position.y = - 95;
-            //scene.add( object );
-        }, onProgress, onError );
-
-    });
-
-}
-function loadObj(sName) {
-
-    // texture
-
-    var manager = new THREE.LoadingManager();
-    manager.onProgress = function ( item, loaded, total ) {
-
-        console.log( item, loaded, total );
-
-    };
-
-    var texture = new THREE.Texture();
-
-    var onProgress = function ( xhr ) {
-        if ( xhr.lengthComputable ) {
-            var percentComplete = xhr.loaded / xhr.total * 100;
-            console.log( Math.round(percentComplete, 2) + '% downloaded' );
-        }
-    };
-
-    var onError = function ( xhr ) {
-    };
-
-
-    var loader = new THREE.ImageLoader( manager );
-   // var imgUrl="3dfiles/obj/"+sName+"/";
-    loader.load( "../../showroom/3d_files/obj/shinei-dimian-01/maps/Rectangle29872VRay-1.png", function ( image ) {
-
-        texture.image = image;
-        texture.needsUpdate = true;
-
-    } );
-
-    // model
-
-    floorMaterialTop = new THREE.MeshPhongMaterial({
-        map: texture,
-        side: THREE.DoubleSide,
-        color: 0xffffff,
-        specular: 0x0a0a0a,
-        opacity:0.5,
-        transparent:true
-    });
-
-    var loader = new THREE.OBJLoader( manager );
-    //var sObjUrl="3dfiles/obj/"+sName+"/";
-    loader.load( "../../showroom/3d_files/obj/shinei-dimian-01/shinei-dimian-01.obj", function ( object ) {
-
-        object.traverse( function ( child ) {
-
-            if ( child instanceof THREE.Mesh ) {
-
-                //child.material = floorMaterialTop;
-                child.material.map = texture;
-                child.material.transparent=true;
-                child.material.opacity= 0.7;
-                child.receiveShadow =true;
-
-            }
-
-        } );
-
-        //object.position.y = - 95;
-       scene.add( object );
-
-    }, onProgress, onError );
 }
 function initGui() {
     var gui = new dat.gui.GUI();
@@ -740,7 +785,7 @@ function initGui() {
     gui.add( Ambient, "colorG", 0, 2).step(0.01).name("G分量");
     gui.add( Ambient, "colorB", 0, 2).step(0.01).name("B分量");
     gui.add( Ambient, "isOff").name("开灯");
-
+    /*
      folder=gui.addFolder("室内灯0");
      var pointLight = {
      get "lux"() {return gLightMgr.pointList[0].intensity;},
@@ -791,7 +836,7 @@ function initGui() {
      };
      gui.add( pointLight, "lux", 0, 5).step(0.1).name("照度");
      gui.add( pointLight, "isOff").name("开灯");
-
+     */
     gui.open();
 }
 //*********************************************************************
@@ -808,7 +853,8 @@ function creatCube() {
 }
 function raycastProc() {
     var vector = new THREE.Vector3( gMouse.x, gMouse.y, 0.5 );
-    gProjector.unprojectVector( vector, gCameraMgr.camera );
+    //gProjector.unprojectVector( vector, gCameraMgr.camera);  //旧版本
+    vector.unproject( camera );
 
     var raycaster = new THREE.Raycaster( gCameraMgr.camera.position, vector.sub( gCameraMgr.camera.position ).normalize() );
     var intersects = raycaster.intersectObjects( gSelectList, true );
@@ -834,11 +880,10 @@ function raycastProc() {
 
     }
 }
-function toScreenPosition(obj, camera)
-{
+function toScreenPosition(obj, camera) {
     var vector = new THREE.Vector3();
-    var widthHalf = 0.5*gRenderer.context.canvas.width;
-    var heightHalf = 0.5*gRenderer.context.canvas.height;
+    var widthHalf = 0.5*renderer.context.canvas.width;
+    var heightHalf = 0.5*renderer.context.canvas.height;
     obj.updateMatrixWorld();
     vector.setFromMatrixPosition(obj.matrixWorld);
     vector.project(camera);
@@ -877,4 +922,107 @@ function openBox(param) {
 function closebox() {
     $("#box").css("display", "none");
     gCameraCtrl.enabled=true;
+
+
+}
+
+//自定义canvas纹理
+function generateTexture() {
+
+    var canvas = document.createElement( 'canvas' );
+    canvas.width = 256;
+    canvas.height = 256;
+
+    var context = canvas.getContext( '2d' );
+    var image = context.getImageData( 0, 0, 256, 256 );
+
+    var x = 0, y = 0;
+
+    for ( var i = 0, j = 0, l = image.data.length; i < l; i += 4, j ++ ) {
+
+        x = j % 256;
+        y = x == 0 ? y + 1 : y;
+
+        image.data[ i ] = 255;
+        image.data[ i + 1 ] = 255;
+        image.data[ i + 2 ] = 255;
+        image.data[ i + 3 ] = Math.floor( x ^ y );
+
+    }
+
+    context.putImageData( image, 0, 0 );
+
+    return canvas;
+
+}
+// Square
+var squareShape = new THREE.Shape();
+squareShape.moveTo( 0, 0 );
+squareShape.lineTo( 230, 0 );
+squareShape.lineTo( 230, 161 );
+squareShape.lineTo( 0, 161 );
+squareShape.lineTo( 0, 0 );
+
+var extrudeSettings = { amount: 1, bevelEnabled: true, bevelSegments: 2, steps: 0, bevelSize: 0, bevelThickness: 0 };
+
+//addShape( squareShape,extrudeSettings, 0x0040f0,  0,  0, 0, 0, 0, 0, 1 );
+
+function addShape( shape, extrudeSettings, color, x, y, z, rx, ry, rz, s ) {
+
+
+    // Square
+
+    var squareShape = new THREE.Shape();
+    squareShape.moveTo( 0, 0 );
+    squareShape.lineTo( 236, 0 );
+    squareShape.lineTo( 236, 167 );
+    squareShape.lineTo( 0, 167 );
+    squareShape.lineTo( 0, 0 );
+
+
+    var extrudeSettings = { amount: 1, bevelEnabled: true, bevelSegments: 2, steps: 0, bevelSize: 0, bevelThickness: 0 };
+
+    var loader = new THREE.TextureLoader();
+
+    var imgUrl2="3d_files/texture/bk/";
+
+     var texture = loader.load(imgUrl2+'00002VRay.png');
+
+    // it's necessary to apply these settings in order to correctly display the texture on a shape geometry
+
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set( 0.008, 0.008 );
+
+
+    // flat shape with texture
+    // note: default UVs generated by ShapeBufferGeometry are simply the x- and y-coordinates of the vertices
+
+    //var geometry = new THREE.ShapeBufferGeometry( shape );
+
+
+    // flat shape
+
+    /*var geometry = new THREE.ShapeBufferGeometry( shape );
+
+     var mesh = new THREE.Mesh( geometry, new THREE.MeshPhongMaterial( { color: color, side: THREE.DoubleSide } ) );
+     mesh.position.set( x, y, z - 125 );
+     mesh.rotation.set( rx, ry, rz );
+     mesh.scale.set( s, s, s );
+     group.add( mesh );*/
+
+    // extruded shape
+
+    var geometry = new THREE.ExtrudeGeometry( shape, extrudeSettings );
+
+    var mesh = new THREE.Mesh( geometry, new THREE.MeshPhongMaterial( { color: color,texture:texture } ) );
+    //mesh.position.set( x, y, z - 75 );
+    //mesh.rotation.set( rx, ry, rz );
+    //mesh.scale.set( s, s, s );
+    //group.add( mesh );
+    mesh.rotateX(-Math.PI / 2);
+   // mesh.position.set(0,0,0);
+    mesh.position.set(-115,100,80);
+    mesh.receiveShadow=true;
+    scene.add(mesh);
+
 }
