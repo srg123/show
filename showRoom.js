@@ -19,13 +19,35 @@ var HEIGHT = window.innerHeight;
 var windowHalfX = window.innerWidth / 2;
 var windowHalfY = window.innerHeight / 2;
 var groundMirrorMaterial;
-var standardMaterial, standardMaterialPremultiplied, floorMaterial;
+
 
 var cameraCube, sceneCube;
 var textureEquirec, textureCube, textureSphere;
 var cubeMesh, sphereMesh;
 var sphereMaterial;
 var refract;
+
+
+var composer;
+var standardMaterial, standardMaterialPremultiplied, floorMaterial;
+
+var params = {
+    opacity: 1.0,
+    roughness: 1.0,
+    bumpScale: 1.0,
+    exposure: 3.0,
+    whitePoint: 5.0,
+    toneMapping: "Uncharted2",
+    renderMode: "Renderer"
+};
+
+var toneMappingOptions = {
+    None: THREE.NoToneMapping,
+    Linear: THREE.LinearToneMapping,
+    Reinhard: THREE.ReinhardToneMapping,
+    Uncharted2: THREE.Uncharted2ToneMapping,
+    Cineon: THREE.CineonToneMapping
+};
 
 //*********************************************************************
 
@@ -40,9 +62,10 @@ function init() {
     initCamera();
     initLight();
     loadModel();
-    homeEve();
-    loadObj("shinei-dimian-01");
+    //homeEve();
+    //loadObj("shinei-dimian-01");
     backgroundFloor();
+    toneMaping();
     initEvent();
     initControls();
     initHelp();
@@ -57,17 +80,42 @@ function animate() {
 }
 function render() {
 
-    camera.lookAt(scene.position )
-    cameraCube.rotation.copy( camera.rotation );
+    if ( standardMaterial !== undefined ) {
 
-    renderer.render( sceneCube, cameraCube );
-    renderer.render(scene, camera);
+        standardMaterial.roughness = params.roughness;
+        standardMaterial.bumpScale = - 0.05 * params.bumpScale;
+        standardMaterial.opacity = params.opacity;
+
+    }
+    if( renderer.toneMapping !== toneMappingOptions[ params.toneMapping ] ) {
+        renderer.toneMapping = toneMappingOptions[ params.toneMapping ];
+        if( standardMaterial ) standardMaterial.needsUpdate = true;
+        if( floorMaterial ) floorMaterial.needsUpdate = true;
+    }
+    renderer.toneMappingExposure = params.exposure;
+    renderer.toneMappingWhitePoint = params.whitePoint;
+
+    camera.lookAt(scene.position )
+    //cameraCube.rotation.copy( camera.rotation );
 
     Rendering();
+    if( params.renderMode === "Composer" ) {
+        composer.render();
+    }
+    else {
+        renderer.render( scene, camera );
+
+       // renderer.render( sceneCube, cameraCube );
+        renderer.render(scene, camera);
+
+    }
+
+
 }
 function Rendering(){
 
-    var delta = gClock.getDelta();
+
+    var delta = clock.getDelta();
     if( controls1 &&  controls1.enabled)
     {
         controls1.update( delta );// required if controls.enableDamping = true, or if controls.autoRotate = true
@@ -84,6 +132,8 @@ function Rendering(){
         }
 
     }
+
+
 }
 function initScene(){
 
@@ -265,6 +315,19 @@ function initRenderer(){
     //renderer.gammaInput = true;
     //renderer.gammaOutput = true;
     //renderer.shadowMap.renderReverseSided = false;
+    renderer.shadowMap.enabled = true;
+    renderer.gammaInput = true;
+    renderer.gammaOutput = true;
+
+    composer = new THREE.EffectComposer( renderer );
+    composer.setSize( window.innerWidth, window.innerHeight );
+
+    var renderScene = new THREE.RenderPass( scene, camera );
+    composer.addPass( renderScene );
+
+    var copyPass = new THREE.ShaderPass( THREE.CopyShader );
+    copyPass.renderToScreen = true;
+    composer.addPass( copyPass );
 
     renderer.setPixelRatio( window.devicePixelRatio );
     renderer.setSize( window.innerWidth, window.innerHeight  );
@@ -576,6 +639,101 @@ function loadModel() {
 
 
 }
+function toneMaping(){
+
+
+    standardMaterial = new THREE.MeshStandardMaterial( {
+        bumpScale: - 0.05,
+        color: 0xffffff,
+        metalness: 0.9,
+        roughness: 0.8,
+        premultipliedAlpha: true,
+        transparent: true
+    } );
+    var textureLoader = new THREE.TextureLoader();
+  /*  textureLoader.load( "3d_files/texture/brick_diffuse.jpg", function( map ) {
+     map.wrapS = THREE.RepeatWrapping;
+     map.wrapT = THREE.RepeatWrapping;
+     map.anisotropy = 4;
+     map.repeat.set( 9, 0.5 );
+     standardMaterial.map = map;
+     standardMaterial.needsUpdate = true;
+     } );
+     textureLoader.load( "3d_files/texture/brick_bump.jpg", function( map ) {
+     map.wrapS = THREE.RepeatWrapping;
+     map.wrapT = THREE.RepeatWrapping;
+     map.anisotropy = 4;
+     map.repeat.set( 9, 0.5 );
+     standardMaterial.bumpMap = map;
+     standardMaterial.needsUpdate = true;
+     } );
+     textureLoader.load( "3d_files/texture/brick_roughness.jpg", function( map ) {
+     map.wrapS = THREE.RepeatWrapping;
+     map.wrapT = THREE.RepeatWrapping;
+     map.anisotropy = 4;
+     map.repeat.set( 9, 0.5 );
+     standardMaterial.roughnessMap = map;
+     standardMaterial.needsUpdate = true;
+     } );*/
+     textureLoader.load( "3d_files/texture/brick_diffuse.jpg", function( map ) {
+     map.wrapS = THREE.RepeatWrapping;
+     map.wrapT = THREE.RepeatWrapping;
+     map.anisotropy = 4;
+     map.repeat.set( 9, 0.5 );
+     standardMaterial.map = map;
+     standardMaterial.needsUpdate = true;
+     } );
+     textureLoader.load( "3d_files/texture/brick_bump.jpg", function( map ) {
+     map.wrapS = THREE.RepeatWrapping;
+     map.wrapT = THREE.RepeatWrapping;
+     map.anisotropy = 4;
+     map.repeat.set( 9, 0.5 );
+     standardMaterial.bumpMap = map;
+     standardMaterial.needsUpdate = true;
+     } );
+     textureLoader.load( "3d_files/texture/brick_roughness.jpg", function( map ) {
+     map.wrapS = THREE.RepeatWrapping;
+     map.wrapT = THREE.RepeatWrapping;
+     map.anisotropy = 4;
+     map.repeat.set( 9, 0.5 );
+     standardMaterial.roughnessMap = map;
+     standardMaterial.needsUpdate = true;
+     } );
+    group2 = new THREE.Group();
+    scene.add( group2 );
+
+    //var geometry = new THREE.TorusKnotGeometry( 18, 8, 150, 20 );
+    var geometry = new THREE.BoxBufferGeometry( 236, 1, 167 );
+    var mesh = new THREE.Mesh( geometry, standardMaterial );
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.position.Y= 3;
+    group2.add( mesh );
+
+    // Materials
+    var hdrpath = "3d_files/texture/cube/pisaHDR/";
+    var hdrformat = '.hdr';
+    var hdrurls = [
+        hdrpath + 'px' + hdrformat, hdrpath + 'nx' + hdrformat,
+        hdrpath + 'py' + hdrformat, hdrpath + 'ny' + hdrformat,
+        hdrpath + 'pz' + hdrformat, hdrpath + 'nz' + hdrformat
+    ];
+
+    var hdrCubeMap = new THREE.HDRCubeTextureLoader().load( THREE.UnsignedByteType, hdrurls, function ( hdrCubeMap ) {
+
+        var pmremGenerator = new THREE.PMREMGenerator( hdrCubeMap );
+        pmremGenerator.update( renderer );
+
+        var pmremCubeUVPacker = new THREE.PMREMCubeUVPacker( pmremGenerator.cubeLods );
+        pmremCubeUVPacker.update( renderer );
+
+        standardMaterial.envMap = pmremCubeUVPacker.CubeUVRenderTarget.texture;
+        standardMaterial.needsUpdate = true;
+
+    } );
+
+
+}
 function initEvent(){
     window.addEventListener( 'resize', onWindowResize, false );
     document.addEventListener('click', onDocumentClick, false);
@@ -644,18 +802,18 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
     renderer.setSize( window.innerWidth, window.innerHeight );
 
-    cameraCube.aspect = window.innerWidth / window.innerHeight;
-    cameraCube.updateProjectionMatrix();
+   // cameraCube.aspect = window.innerWidth / window.innerHeight;
+    //cameraCube.updateProjectionMatrix();
     //controls1.handleResize();
+    composer.setSize(  window.innerWidth, window.innerHeight );
 
 
-
-   if (controls1 && controls1.enabled){
+ /*  if (controls1 && controls1.enabled){
         controls1.handleResize();
     }
     if (controls2 && controls2.enabled){
         controls2.handleResize();
-    }
+    }*/
 
 
 
