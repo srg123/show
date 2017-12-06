@@ -1,19 +1,14 @@
 
 if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
 var container, stats;
-var scene, renderer;
-var gCameraMgr;
 var camera, gLightMgr;
-var FirstPersonControls;
-var OrbitControls;
+var scene, renderer;
+var controls1,controls2,controls3;
 var gDefaultTag=undefined;
-var gDropCrtl=undefined;
 var gSelectTag=null;
 var gRaycaster=undefined;
 var gMouse= new THREE.Vector2();
-var gClock = new THREE.Clock();
-var gMtlLoader = new THREE.MTLLoader();
-var gObjLoader = new THREE.OBJLoader();
+var clock = new THREE.Clock();;
 var gnModelIndex=0;
 var gSelectList=[];
 var gModeMap={};
@@ -21,6 +16,8 @@ var gProjector = new THREE.Projector();
 
 var WIDTH = window.innerWidth;
 var HEIGHT = window.innerHeight;
+var windowHalfX = window.innerWidth / 2;
+var windowHalfY = window.innerHeight / 2;
 var groundMirrorMaterial;
 var standardMaterial, standardMaterialPremultiplied, floorMaterial;
 
@@ -38,20 +35,17 @@ init();
 animate();
 
 function init() {
-
     initScene();
     initRenderer();
     initCamera();
     initLight();
     loadModel();
-    home_env();
+    homeEve();
     loadObj("shinei-dimian-01");
     backgroundFloor();
     initEvent();
+    initControls();
     initHelp();
-
-   //
-
 }
 function animate() {
 
@@ -60,90 +54,102 @@ function animate() {
     render();
     stats.end();
 
-     var delta = gClock.getDelta();
-
-   if(gCameraCtrl && gCameraCtrl.enabled)
-     {
-        gCameraCtrl.update(delta);
-     }
-    if(gModelList.length==gnModelIndex){
-        raycastProc();
-        if(gSelectTag){
-            gDropCrtl.update();
-        }
-
-    }
 }
 function render() {
 
-    cameraCube.rotation.copy( camera.rotation );
-    renderer.render( sceneCube, cameraCube );
-
-    renderer.render(scene, gCameraMgr.camera);
     camera.lookAt(scene.position )
+    cameraCube.rotation.copy( camera.rotation );
 
+    renderer.render( sceneCube, cameraCube );
+    renderer.render(scene, camera);
+
+    Rendering();
+}
+function Rendering(){
+
+    var delta = gClock.getDelta();
+    if( controls1 &&  controls1.enabled)
+    {
+        controls1.update( delta );// required if controls.enableDamping = true, or if controls.autoRotate = true
+    }
+    if( controls2 &&  controls2.enabled)(
+
+        controls2.update( delta )
+    )
+
+    if(gModelList.length==gnModelIndex){
+        raycastProc();
+        if(gSelectTag){
+            controls3.update();
+        }
+
+    }
 }
 function initScene(){
 
     container = document.createElement( 'div' );
     document.body.appendChild( container );
-    // scene
-    scene = new THREE.Scene();
+
     //gScene.background = new THREE.Color( 0x000000);
    // scene.background = new THREE.Color().setHSL( 0.6, 0, 1 );
+
+    scene = new THREE.Scene();
+    //scene.background = new THREE.Color( 0xffffff );
+   // scene.fog = new THREE.FogExp2( 0xffffff, 0.00015 );
 }
 function initCamera() {
-    var nWidth= window.innerWidth;
-    var nHeight= window.innerHeight;
-    gCameraMgr=new CameraMgr(scene, renderer);
-    camera=gCameraMgr.createCamera( 70, nWidth / nHeight, 1, 10000);
 
-    camera.position.set(0, 800,0);
+    camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 10000);
+    camera.position.set( 0, 100, 300 );
+   // camera.position.set(0, 800,0);
     //camera.rotation.x=Math.PI * 0.47;
 
-    //第一人称摄像机
-    gCameraCtrl=gCameraMgr.createFirstCtrl();
-    {
-        gCameraCtrl.lookSpeed = 0.000001;
-        gCameraCtrl.autoForward=false;
-        gCameraCtrl.movementSpeed = 50;
-        gCameraCtrl.noFly = true ;
-        gCameraCtrl.lookVertical = true;
-        gCameraCtrl.constrainVertical = true;
-        gCameraCtrl.verticalMin = 1.5;
-        gCameraCtrl.verticalMax = 2.0;
-        gCameraCtrl.lon = 250;
-        gCameraCtrl.lat = 30;
-    }
-    gCameraCtrl.enabled=false;
+}
+function initControls(){
 
-    //轨迹球摄像机控制器
-    gCameraCtrl=gCameraMgr.createOrbitCtrl();{
-   /*     gCameraCtrl.minPolarAngle=Math.PI * 0.01;
-        gCameraCtrl.maxPolarAngle = Math.PI * 0.47;
-        gCameraCtrl.minDistance = 1;
-        gCameraCtrl.maxDistance = 10000;
-        gCameraCtrl.enableKeys=false;*/
-        gCameraCtrl.minPolarAngle=Math.PI * 0.01;
-        gCameraCtrl.maxPolarAngle = 0.9 * Math.PI / 2;
-       // gCameraCtrl.maxPolarAngle = Math.PI * 0.47;
-        gCameraCtrl.target.set( 0, 30, 0);
-        gCameraCtrl.maxDistance = 300;
-        gCameraCtrl.minDistance = 30;
-        gCameraCtrl.update();
+    controls1 = new THREE.OrbitControls(camera, renderer.domElement);
+    //controls1.addEventListener('change', render); // remove when using animation loop
+    {
+        // enable animation loop when using damping or autorotation
+        //controls1.enableDamping = true;
+        //controls1.dampingFactor = 0.25;
+        controls1.enableZoom = true;
+        controls1.minPolarAngle = Math.PI * 0.01;
+        // controls1.maxPolarAngle = 0.9 * Math.PI / 2;
+        controls1.maxPolarAngle = Math.PI * 0.47;
+       // controls1.target.set(0, 30, 0);
+       // controls1.maxDistance = 500;
+        //controls1.minDistance = 0;
+
+
     }
-    gCameraCtrl.enabled=true;
+
+    controls1.enabled = true;
+
+
+    controls2 = new THREE.FirstPersonControls(camera, renderer.domElement);
+    {
+        controls2.movementSpeed = 1000;
+        controls2.lookSpeed = 0.1;
+    }
+
+    controls2.enabled = false;
+
+    controls3 = new THREE.TransformControls( camera, renderer.domElement );
+    controls3.addEventListener( 'change', renderer );
+    scene.add(controls3);
+
 }
 function initLight() {
 
     ambient = new THREE.AmbientLight(0xffffff );
     scene.add( ambient );
     //自动行走
-    guide = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({color: 0xffffff}));
+ /*   guide = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({color: 0xffffff}));
     guide.position.set(1500, 900, -6000);
     guide.castShadow=true;
     guide.receiveShadow=true;
-    scene.add(guide);
+    scene.add(guide);*/
     /*
      gLightMgr=new LightMgr(gScene, false);
      //gLightMgr.isHelper=true;
@@ -256,122 +262,25 @@ function initRenderer(){
     //renderer.shadowMap.enabled = true;
     //renderer.shadowMapSoft = true;
     //renderer.shadowMapType = THREE.PCFSoftShadowMap;
+    //renderer.gammaInput = true;
+    //renderer.gammaOutput = true;
+    //renderer.shadowMap.renderReverseSided = false;
 
     renderer.setPixelRatio( window.devicePixelRatio );
     renderer.setSize( window.innerWidth, window.innerHeight  );
 
-    //renderer.gammaInput = true;
-    //renderer.gammaOutput = true;
-    //renderer.shadowMap.renderReverseSided = false;
     renderer.autoClear = false;
     renderer.setFaceCulling( THREE.CullFaceNone );
 
     container.appendChild( renderer.domElement );
 }
-function loadModel() {
-
-   // model
-    if(gModelList.length<(gnModelIndex+1))
-    {
-        return;
-    }
-    var jsObj=gModelList[gnModelIndex];
-
-    var objKzt = gModelList[6];
-    console.log(objKzt);
-
-    var onProgress = function ( xhr ) {
-        if ( xhr.lengthComputable ) {
-            var percentComplete = xhr.loaded / xhr.total * 100;
-            console.log( Math.round(percentComplete, 2) + '% downloaded' );
-        }
-    };
-
-    var onError = function ( xhr ) { };
-
-    var texture = new THREE.Texture( generateTexture() );
-    texture.needsUpdate = true;
-
-    THREE.Loader.Handlers.add( /\.dds$/i, new THREE.DDSLoader() );
-
-    var mtlLoader = new THREE.MTLLoader();
-    var sObjUrl="3d_files/obj/"+jsObj.model+"/";
-    mtlLoader.setPath(sObjUrl);
-    mtlLoader.load( jsObj.model+'.mtl', function( materials ) {
-
-        materials.transparent = true;
-        materials.opacity = .8;
-        materials.map = texture;
-        materials.color = 0xddddd;
-        // materials.specular = 0x009900;
-        // materials.shininess = 30;
-        // materials.flatShading = true;
-        // materials.emissive = 0xff0000;
-        // materials.shininess = 10;
-        // materials.preload();
-         //materials.flatShading = THREE.SmoothShading;
-         materials.shininess = 0;
-
-        var objLoader = new THREE.OBJLoader();
-        objLoader.setMaterials( materials );
-        var sObjUrl="3d_files/obj/"+jsObj.model+"/";
-        objLoader.setPath(sObjUrl);
-        objLoader.load(jsObj.model+'.obj', function ( object ) {
-
-            //group = new THREE.Group();
-            //group.position.y = 50;
-            //scene.add(group);
-
-            object.traverse( function ( child ) {
-
-                if ( child instanceof THREE.Mesh ) {
-                    // child.material.map = texture;
-                    child.castShadow =true;
-                    child.receiveShadow =true;
-
-                    child.updateMatrix();
-
-                  //  var boxHelper = new THREE.BoundingBoxHelper(child, 0x999999);
-                    //gScene.add(boxHelper);
-
-
-                }
-                if(jsObj.isSelect){
-                    gModeMap[object.uuid]=jsObj;
-                    gSelectList.push(object);
-                }
-
-
-            } );
-
-            object.shading= THREE.FlatShading;
-            object.scale.x = object.scale.y = object.scale.z = 0.01;
-            object.position.set(-97, 0, 68);
-            object.updateMatrix();
-
-            if(jsObj===objKzt ){
-                object.position.set(-97, 1, 68);
-            }
-
-
-            scene.add( object );
-            gnModelIndex++;
-            loadModel();
-
-        }, onProgress, onError );
-
-    });
-
-
-
-}
 function loadObj(sName) {
 
     group = new THREE.Group();
     //group.position.y = 50;
-     scene.add(group);
+    scene.add(group);
 
-   var groundMirror = new THREE.Mirror( 236, 167, {
+    var groundMirror = new THREE.Mirror( 236, 167, {
         clipBias: 0.001,
         textureWidth: WIDTH * window.devicePixelRatio,
         textureHeight: HEIGHT * window.devicePixelRatio,
@@ -387,8 +296,8 @@ function loadObj(sName) {
     //var mirrorMesh = new THREE.Mesh( planeGeo, groundMirror.material );
     //mirrorMesh.add(groundMirror);
     //mirrorMesh.rotation.set(Math.PI / 4, 100, 0);
-   // groundMirror.rotateX( Math.PI / 2 );
-   // group.add(mirrorMesh);
+    // groundMirror.rotateX( Math.PI / 2 );
+    // group.add(mirrorMesh);
 
 
     // texture
@@ -419,7 +328,7 @@ function loadObj(sName) {
 
     var textureLoader2 = new THREE.TextureLoader();
 
-    lightMap = textureLoader2.load( "3d_files/Mirror/shinei-dimian-01/maps/shinei-dimian-03.png" );
+    lightMap = textureLoader2.load( "3d_files/Mirror/shinei-dimian-01/maps/lightmap-ao-shadow.png" );
 
     var loader = new THREE.OBJLoader( manager );
     var sObjUrl="3d_files/Mirror/"+sName+"/";
@@ -429,17 +338,17 @@ function loadObj(sName) {
 
             if ( child instanceof THREE.Mesh ) {
 
-                    //child.material = gBgMirror.material;
-                    child.material.needsUpdate = true;
-                    child.material.map = texture;
-                    //child.material.envMap = textureCube;
-                    child.lightMap = lightMap;
-                    child.material.transparent=true;
-                    child.material.opacity= 0.8;
-                    child.receiveShadow =true;
-                    child.position.set(-97,0,68);
-                    child.scale.x =  child.scale.y =  child.scale.z = 0.01;
-                    child.updateMatrix();
+                //child.material = gBgMirror.material;
+                child.material.needsUpdate = true;
+                child.material.map = texture;
+                //child.material.envMap = textureCube;
+                child.material.mapLight = lightMap;
+                child.material.transparent=true;
+                child.material.opacity= 0.8;
+                child.receiveShadow =true;
+                child.position.set(-97,0,68);
+                child.scale.x =  child.scale.y =  child.scale.z = 0.01;
+                child.updateMatrix();
 
             }
 
@@ -451,9 +360,8 @@ function loadObj(sName) {
     }, onProgress, onError );
 
 
-
 }
-function home_env(){
+function homeEve(){
     cameraCube = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 1, 100000 );
     sceneCube = new THREE.Scene();
 
@@ -542,28 +450,28 @@ function backgroundFloor(){
 
     materials2.push( new THREE.MeshBasicMaterial( { map: texture2, transparent: true } ) );
 
-   /* backgroundMaterial = new THREE.MeshStandardMaterial( {
-        //transparent: true,
-       // opacity : .1,
-        map: null,            //纹理贴图颜色由diffuse .color调制
-        roughnessMap: null, //该纹理的绿色通道用于改变材料的粗糙度。
-        //color: 0x888888,
-        metalness: 0.0,    //改变材质的金属性
-        roughness: 1.0,
-        //side: THREE.DoubleSide
-        side: THREE.BackSide
-    } );*/
+    /* backgroundMaterial = new THREE.MeshStandardMaterial( {
+     //transparent: true,
+     // opacity : .1,
+     map: null,            //纹理贴图颜色由diffuse .color调制
+     roughnessMap: null, //该纹理的绿色通道用于改变材料的粗糙度。
+     //color: 0x888888,
+     metalness: 0.0,    //改变材质的金属性
+     roughness: 1.0,
+     //side: THREE.DoubleSide
+     side: THREE.BackSide
+     } );*/
 
-   var textureLoader = new THREE.TextureLoader();
+    var textureLoader = new THREE.TextureLoader();
     textureLoader.load( "3d_files/texture/bk/00002VRay.jpg", function( map ) {
-          // map.wrapS = THREE.RepeatWrapping;
-          // map.wrapT = THREE.RepeatWrapping;
-          // map.anisotropy = 16;
-          // map.repeat.set(0.0005, 0.0005);
-           materials2[6].map = map;
-           materials2[6].needsUpdate = true;
+        // map.wrapS = THREE.RepeatWrapping;
+        // map.wrapT = THREE.RepeatWrapping;
+        // map.anisotropy = 16;
+        // map.repeat.set(0.0005, 0.0005);
+        materials2[6].map = map;
+        materials2[6].needsUpdate = true;
     } );
-   // var geometry = new THREE.SphereBufferGeometry( 500, 6, 4 );
+    // var geometry = new THREE.SphereBufferGeometry( 500, 6, 4 );
     //geometry.scale( - 1, 1, 1 );
     var geometry = new THREE.BoxBufferGeometry( 10000, 0, 10000 );
     var mesh = new THREE.Mesh( geometry,materials2[6] );
@@ -572,13 +480,108 @@ function backgroundFloor(){
     mesh.receiveShadow = true;
     scene.add( mesh );
 }
+function loadModel() {
+
+   // model
+    if(gModelList.length<(gnModelIndex+1))
+    {
+        return;
+    }
+    var jsObj=gModelList[gnModelIndex];
+
+    var objKzt = gModelList[6];
+    console.log(objKzt);
+
+    var onProgress = function ( xhr ) {
+        if ( xhr.lengthComputable ) {
+            var percentComplete = xhr.loaded / xhr.total * 100;
+            console.log( Math.round(percentComplete, 2) + '% downloaded' );
+        }
+    };
+
+    var onError = function ( xhr ) { };
+
+    var texture = new THREE.Texture( generateTexture() );
+    texture.needsUpdate = true;
+
+    THREE.Loader.Handlers.add( /\.dds$/i, new THREE.DDSLoader() );
+
+    var mtlLoader = new THREE.MTLLoader();
+    var sObjUrl="3d_files/obj/"+jsObj.model+"/";
+    mtlLoader.setPath(sObjUrl);
+    mtlLoader.load( jsObj.model+'.mtl', function( materials ) {
+
+        materials.transparent = true;
+        materials.opacity = .8;
+        materials.map = texture;
+        materials.color = 0xddddd;
+        // materials.specular = 0x009900;
+        // materials.shininess = 30;
+        // materials.flatShading = true;
+        // materials.emissive = 0xff0000;
+        // materials.shininess = 10;
+        // materials.preload();
+         //materials.flatShading = THREE.SmoothShading;
+         materials.shininess = 0;
+
+        var objLoader = new THREE.OBJLoader();
+        objLoader.setMaterials( materials );
+        var sObjUrl="3d_files/obj/"+jsObj.model+"/";
+        objLoader.setPath(sObjUrl);
+        objLoader.load(jsObj.model+'.obj', function ( object ) {
+
+            //group = new THREE.Group();
+            //group.position.y = 50;
+            //scene.add(group);
+
+            object.traverse( function ( child ) {
+
+                if ( child instanceof THREE.Mesh ) {
+                    // child.material.map = texture;
+                    child.castShadow =true;
+                    child.receiveShadow =true;
+
+                    child.updateMatrix();
+
+                  //  var boxHelper = new THREE.BoundingBoxHelper(child, 0x999999);
+                    //gScene.add(boxHelper);
+
+
+                }
+                if(jsObj.isSelect){
+                    gModeMap[object.uuid]=jsObj;
+                    gSelectList.push(object);
+                }
+
+
+            } );
+
+            object.shading= THREE.FlatShading;
+            object.scale.x = object.scale.y = object.scale.z = 0.01;
+            object.position.set(-97, 0, 68);
+            object.updateMatrix();
+
+            if(jsObj===objKzt ){
+                object.position.set(-97, 1, 68);
+            }
+
+            scene.add( object );
+            gnModelIndex++;
+            loadModel();
+
+        }, onProgress, onError );
+
+    });
+
+
+
+}
 function initEvent(){
     window.addEventListener( 'resize', onWindowResize, false );
     document.addEventListener('click', onDocumentClick, false);
     document.addEventListener( 'keydown', onKeyDown, false );
     document.addEventListener( 'keyup', onKeyUp, false );
     document.addEventListener('mousemove', onDocumentMouseMove, false);
-    document.addEventListener("contextmenu", onContextmenu, false);
 }
 function initHelp(){
 
@@ -590,9 +593,6 @@ function initHelp(){
 
     gRaycaster=new THREE.Raycaster();
 
-    gDropCrtl = new THREE.TransformControls( gCameraMgr.camera, renderer.domElement );
-    gDropCrtl.addEventListener( 'change', renderer );
-    scene.add(gDropCrtl);
 
     var info = document.createElement( 'div' );
     info.style.position = 'absolute';
@@ -602,125 +602,20 @@ function initHelp(){
     info.innerHTML = 'Drag to change the view';
     container.appendChild( info );
 
+   //var cameraParObj = new THREE.Object3D();
+    //cameraParObj.position.y = 200;
+    //cameraParObj.position.z = 700;
+   // scene.add(cameraParObj);
+   // cameraParObj.add(cameraCube);
+   // var cameraHelper2 = new THREE.CameraHelper(cameraCube);
+   // scene.add(cameraHelper2);
 
-}
-function fillScene() {
-
-
-    var gui = new dat.GUI();
-    var decalNormal = new THREE.TextureLoader().load( '3dfils/decal/decal-normal.jpg' );
-
-    var decalDiffuse = new THREE.TextureLoader().load( '3dfils/decal/decal-diffuse.png' );
-    decalDiffuse.wrapS = decalDiffuse.wrapT = THREE.RepeatWrapping;
-
-    var planeGeo = new THREE.PlaneBufferGeometry(800, 1200);
-    // MIRROR planes
-    var groundMirror = new THREE.MirrorRTT( 100, 100, { clipBias: 0.003, textureWidth: WIDTH, textureHeight: HEIGHT } );
-
-    var mask = new THREE.SwitchNode( new THREE.TextureNode( decalDiffuse ), 'w' );
-    var maskFlip = new THREE.Math1Node( mask, THREE.Math1Node.INVERT );
-
-    var mirror = new THREE.MirrorNode( groundMirror );
-
-    var normal = new THREE.TextureNode( decalNormal );
-    var normalXY = new THREE.SwitchNode( normal, 'xy' );
-    var normalXYFlip = new THREE.Math1Node(
-        normalXY,
-        THREE.Math1Node.INVERT
-    );
-
-    var offsetNormal = new THREE.OperatorNode(
-        normalXYFlip,
-        new THREE.FloatNode( .5 ),
-        THREE.OperatorNode.SUB
-    );
-
-    mirror.offset = new THREE.OperatorNode(
-        offsetNormal, // normal
-        new THREE.FloatNode( 6 ),// scale
-        THREE.OperatorNode.MUL
-    );
-
-    var clr = new THREE.Math3Node(
-        mirror,
-        new THREE.ColorNode( 0xFFFFFF ),
-        null,
-        THREE.Math3Node.MIX
-    );
-
-    var blurMirror = new THREE.BlurNode( mirror );
-    blurMirror.size = new THREE.Vector2( WIDTH, HEIGHT );
-    blurMirror.coord = new THREE.FunctionNode( "projCoord.xyz / projCoord.q", "vec3" );
-    blurMirror.coord.keywords[ "projCoord" ] = new THREE.OperatorNode( mirror.offset, mirror.coord, THREE.OperatorNode.ADD );
-    blurMirror.radius.x = blurMirror.radius.y = 1;
-
-  /*  gui.add( { blur : blurMirror.radius.x }, "blur", 0, 25 ).onChange( function(v) {
-
-        blurMirror.radius.x = blurMirror.radius.y = v;
-
-    } );*/
-
-    groundMirrorMaterial = new THREE.PhongNodeMaterial();
-    groundMirrorMaterial.environment = blurMirror; // or add "mirror" variable to disable blur
-    //groundMirrorMaterial.environmentAlpha = mask;
-    groundMirrorMaterial.normal = normal;
-    //groundMirrorMaterial.normalScale = new THREE.FloatNode( 1 );
-    groundMirrorMaterial.build();
-
-    var mirrorMesh = new THREE.Mesh( planeGeo, groundMirrorMaterial );
-    mirrorMesh.add( groundMirror );
-    mirrorMesh.rotateX( - Math.PI / 2 );
-    mirrorMesh.scale.set(1, 1, 1);
-    mirrorMesh.position.set(9650, 290, -7805+1000);
-    mirrorMesh.receiveShadow=true;
-   scene.add( mirrorMesh );
-
-
-
-}
-function initDefaultTag() {
-
-    //相机look位置
-    var geom = new THREE.BoxGeometry( 600, 600, 600 );
-    var mate = new THREE.MeshStandardMaterial({color: 0xffff00,  transparent: true});
-    gDefaultTag = new THREE.Mesh( geom, mate );
-    gDefaultTag.position.set( 1500, 500, -3000);
-    gDefaultTag.castShadow=true;
-    gDefaultTag.receiveShadow=true;
-   scene.add( gDefaultTag );
-}
-function initSky(){
-    var vertexShader = document.getElementById( 'vertexShader' ).textContent;
-    var fragmentShader = document.getElementById( 'fragmentShader' ).textContent;
-    var uniforms = {
-        topColor:    { value: new THREE.Color( 0x0077ff ) },
-        bottomColor: { value: new THREE.Color( 0xffffff ) },
-        offset:      { value: 33 },
-        exponent:    { value: 0.6 }
-    };
-    uniforms.topColor.value.copy( hemiLight.color );
-
-    //gScene.fog.color.copy( uniforms.bottomColor.value );
-
-    var skyGeo = new THREE.SphereGeometry( 30000, 320, 150 );
-    var skyMat = new THREE.ShaderMaterial( { vertexShader: vertexShader, fragmentShader: fragmentShader, uniforms: uniforms, side: THREE.BackSide } );
-
-    var sky = new THREE.Mesh( skyGeo, skyMat );
-   scene.add( sky );
-}
-function eventMgr() {
-
-}
-function onDocumentMouseDown(event ) {
-
-}
-function onContextmenu(event) {
 
 }
 function onDocumentClick() {
     if(gSelectTag)
     {
-        var pt=toScreenPosition(gSelectTag, gCameraMgr.camera);
+        var pt=toScreenPosition(gSelectTag, camera);
         console.log(pt.x+"********************"+pt.y);
     }
 
@@ -729,7 +624,7 @@ function onDocumentClick() {
     }
 
     if(gSelectTag){
-        gDropCrtl.attach( gSelectTag );
+        controls3.attach( gSelectTag );
     }
 }
 function onDocumentMouseMove(event) {
@@ -737,35 +632,43 @@ function onDocumentMouseMove(event) {
     gMouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     gMouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 }
+function onDocumentMouseDown(event ) {
+
+}
 function onWindowResize() {
-    gCameraMgr.camera.aspect = window.innerWidth / window.innerHeight;
-    gCameraMgr.camera.updateProjectionMatrix();
+
+    windowHalfX = window.innerWidth / 2;
+    windowHalfY = window.innerHeight / 2;
+
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize( window.innerWidth, window.innerHeight );
 
     cameraCube.aspect = window.innerWidth / window.innerHeight;
     cameraCube.updateProjectionMatrix();
-
-    renderer.setSize( window.innerWidth, window.innerHeight );
-    if(gCameraCtrl ){
-        if (gCameraCtrl.persCtrl && gCameraCtrl.persCtrl.enabled){
-            gCameraCtrl.persCtrl.handleResize();
-        }
-        if (gCameraCtrl.firstCtrl && gCameraCtrl.firstCtrl.enabled){
-            gCameraCtrl.firstCtrl.handleResize();
-        }
+    //controls1.handleResize();
 
 
+
+   if (controls1 && controls1.enabled){
+        controls1.handleResize();
     }
+    if (controls2 && controls2.enabled){
+        controls2.handleResize();
+    }
+
+
 
 }
 function onKeyDown(event) {
     // if (event.keyCode == 188 && event.ctrlKey)
     // {
     //     camera.currentCamera.position.y -=10;
-    //     log(event.keyCode);
+    //     console.log(event.keyCode);
     // }
 }
 function onKeyUp(event) {
-    log(event.keyCode);
+    console.log(event.keyCode);
 }
 function initGui() {
     var gui = new dat.gui.GUI();
@@ -853,10 +756,10 @@ function creatCube() {
 }
 function raycastProc() {
     var vector = new THREE.Vector3( gMouse.x, gMouse.y, 0.5 );
-    //gProjector.unprojectVector( vector, gCameraMgr.camera);  //旧版本
+    //gProjector.unprojectVector( vector,camera);  //旧版本
     vector.unproject( camera );
 
-    var raycaster = new THREE.Raycaster( gCameraMgr.camera.position, vector.sub( gCameraMgr.camera.position ).normalize() );
+    var raycaster = new THREE.Raycaster( camera.position, vector.sub( camera.position ).normalize() );
     var intersects = raycaster.intersectObjects( gSelectList, true );
 
     if (0<intersects.length) {
@@ -864,7 +767,7 @@ function raycastProc() {
         if (gSelectTag != intersects[0].object) {
             if (gSelectTag) gSelectTag.material.color.setHex(gSelectTag.currentHex);
             if(null!=gSelectTag){
-                gDropCrtl.detach( gSelectTag );
+                controls3.detach( gSelectTag );
             }
             gSelectTag = intersects[0].object;
             gSelectTag.currentHex = gSelectTag.material.color.getHex();
@@ -894,38 +797,147 @@ function toScreenPosition(obj, camera) {
         y: vector.y
     };
 };
-function log(txt){
-    console.log(txt);
-}
-function changeCameraCtrl() {
-    if(undefined==gCameraCtrl){
-        return;
-    }
-    gCameraMgr.firstCtrl.enabled=false;
-    gCameraMgr.persCtrl.enabled=false;
-    if(gCameraCtrl==gCameraMgr.firstCtrl)
-    {
-        gCameraCtrl=gCameraMgr.persCtrl;
+function changeControls() {
+
+
+    if(controls2.enabled){
+        console.log("controls2是真的")
         document.getElementById('imgCamerCtrl').src = "image/man-tin.png";
+        controls2.enabled=false;
+        controls1.enabled=true;
     }else{
-        gCameraCtrl=gCameraMgr.firstCtrl;
+        console.log("controls2是假的")
+
         document.getElementById('imgCamerCtrl').src = "image/man-zou.png";
+        controls2.enabled=true;
+        controls1.enabled=false;
     }
-    gCameraCtrl.enabled=true;
-    console.log("*******************");
+
+
+  //  console.log("控制器运行中");
+
+
 }
 function openBox(param) {
-    gCameraCtrl.enabled=false;
+    controls1.enabled=false;
+    controls2.enabled=false;
     $("#showframe",parent.document.body).attr("src",gUrlList[param.type]);
     $("#box").css("display", "block");
 }
 function closebox() {
     $("#box").css("display", "none");
-    gCameraCtrl.enabled=true;
+    controls1.enabled=true;
+    controls2.enabled=true;
 
 
 }
+function fillScene() {
 
+
+    var gui = new dat.GUI();
+    var decalNormal = new THREE.TextureLoader().load( '3dfils/decal/decal-normal.jpg' );
+
+    var decalDiffuse = new THREE.TextureLoader().load( '3dfils/decal/decal-diffuse.png' );
+    decalDiffuse.wrapS = decalDiffuse.wrapT = THREE.RepeatWrapping;
+
+    var planeGeo = new THREE.PlaneBufferGeometry(800, 1200);
+    // MIRROR planes
+    var groundMirror = new THREE.MirrorRTT( 100, 100, { clipBias: 0.003, textureWidth: WIDTH, textureHeight: HEIGHT } );
+
+    var mask = new THREE.SwitchNode( new THREE.TextureNode( decalDiffuse ), 'w' );
+    var maskFlip = new THREE.Math1Node( mask, THREE.Math1Node.INVERT );
+
+    var mirror = new THREE.MirrorNode( groundMirror );
+
+    var normal = new THREE.TextureNode( decalNormal );
+    var normalXY = new THREE.SwitchNode( normal, 'xy' );
+    var normalXYFlip = new THREE.Math1Node(
+        normalXY,
+        THREE.Math1Node.INVERT
+    );
+
+    var offsetNormal = new THREE.OperatorNode(
+        normalXYFlip,
+        new THREE.FloatNode( .5 ),
+        THREE.OperatorNode.SUB
+    );
+
+    mirror.offset = new THREE.OperatorNode(
+        offsetNormal, // normal
+        new THREE.FloatNode( 6 ),// scale
+        THREE.OperatorNode.MUL
+    );
+
+    var clr = new THREE.Math3Node(
+        mirror,
+        new THREE.ColorNode( 0xFFFFFF ),
+        null,
+        THREE.Math3Node.MIX
+    );
+
+    var blurMirror = new THREE.BlurNode( mirror );
+    blurMirror.size = new THREE.Vector2( WIDTH, HEIGHT );
+    blurMirror.coord = new THREE.FunctionNode( "projCoord.xyz / projCoord.q", "vec3" );
+    blurMirror.coord.keywords[ "projCoord" ] = new THREE.OperatorNode( mirror.offset, mirror.coord, THREE.OperatorNode.ADD );
+    blurMirror.radius.x = blurMirror.radius.y = 1;
+
+    /*  gui.add( { blur : blurMirror.radius.x }, "blur", 0, 25 ).onChange( function(v) {
+
+     blurMirror.radius.x = blurMirror.radius.y = v;
+
+     } );*/
+
+    groundMirrorMaterial = new THREE.PhongNodeMaterial();
+    groundMirrorMaterial.environment = blurMirror; // or add "mirror" variable to disable blur
+    //groundMirrorMaterial.environmentAlpha = mask;
+    groundMirrorMaterial.normal = normal;
+    //groundMirrorMaterial.normalScale = new THREE.FloatNode( 1 );
+    groundMirrorMaterial.build();
+
+    var mirrorMesh = new THREE.Mesh( planeGeo, groundMirrorMaterial );
+    mirrorMesh.add( groundMirror );
+    mirrorMesh.rotateX( - Math.PI / 2 );
+    mirrorMesh.scale.set(1, 1, 1);
+    mirrorMesh.position.set(9650, 290, -7805+1000);
+    mirrorMesh.receiveShadow=true;
+    scene.add( mirrorMesh );
+
+
+
+}
+function initDefaultTag() {
+
+    //相机look位置
+    var geom = new THREE.BoxGeometry( 600, 600, 600 );
+    var mate = new THREE.MeshStandardMaterial({color: 0xffff00,  transparent: true});
+    gDefaultTag = new THREE.Mesh( geom, mate );
+    gDefaultTag.position.set( 1500, 500, -3000);
+    gDefaultTag.castShadow=true;
+    gDefaultTag.receiveShadow=true;
+    scene.add( gDefaultTag );
+}
+function initSky(){
+    var vertexShader = document.getElementById( 'vertexShader' ).textContent;
+    var fragmentShader = document.getElementById( 'fragmentShader' ).textContent;
+    var uniforms = {
+        topColor:    { value: new THREE.Color( 0x0077ff ) },
+        bottomColor: { value: new THREE.Color( 0xffffff ) },
+        offset:      { value: 33 },
+        exponent:    { value: 0.6 }
+    };
+    uniforms.topColor.value.copy( hemiLight.color );
+
+    //gScene.fog.color.copy( uniforms.bottomColor.value );
+
+    var skyGeo = new THREE.SphereGeometry( 30000, 320, 150 );
+    var skyMat = new THREE.ShaderMaterial( { vertexShader: vertexShader, fragmentShader: fragmentShader, uniforms: uniforms, side: THREE.BackSide } );
+
+    var sky = new THREE.Mesh( skyGeo, skyMat );
+    scene.add( sky );
+}
+function eventMgr() {
+
+}
 //自定义canvas纹理
 function generateTexture() {
 
