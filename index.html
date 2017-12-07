@@ -6,8 +6,6 @@
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <script src="./charts/js/jquery-3.2.1.js"></script>
     <script src="../../ThreeLibrary/three/build/three.js"></script>
-
-
     <!-- 天空盒子扩展-->
     <script type="x-shader/x-vertex" id="vertexShader">
 
@@ -49,9 +47,26 @@
     <script src="../../ThreeLibrary/three/examples/js/libs/dat.gui.min.js"></script>
     <script src="../../ThreeLibrary/three2/examples/js/Mirror.js"></script>
     <script src="../../ThreeLibrary/three2/examples/js/MirrorRTT.js"></script>
+<!--    <script src="../../ThreeLibrary/three2/examples/js/controls/OrbitControls.js"></script>
+    <script src="../../ThreeLibrary/three2/examples/js/controls/FirstPersonControls.js"></script>-->
     <script src="../../ThreeLibrary/three/examples/js/controls/TrackballControls.js"></script>
     <script src="../../ThreeLibrary/three/examples/js/controls/TransformControls.js"></script>
     <script src="../../ThreeLibrary/three/examples/js/renderers/Projector.js"></script>
+
+    <script src="../../ThreeLibrary/three2/examples/js/loaders/RGBELoader.js"></script>
+    <script src="../../ThreeLibrary/three2/examples/js/loaders/HDRCubeTextureLoader.js"></script>
+    <script src="../../ThreeLibrary/three2/examples/js/pmrem/PMREMGenerator.js"></script>
+    <script src="../../ThreeLibrary/three2/examples/js/pmrem/PMREMCubeUVPacker.js"></script>
+
+     <!--  定制着色器和渲染后期处理-->
+    <script src="../../ThreeLibrary/three2/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="../../ThreeLibrary/three2/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="../../ThreeLibrary/three2/examples/js/postprocessing/MaskPass.js"></script>
+    <script src="../../ThreeLibrary/three2/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="../../ThreeLibrary/three2/examples/js/shaders/CopyShader.js"></script>
+
+  <!-- ssaa通道-->
+    <script src="../../ThreeLibrary/three2/examples/js/postprocessing/SSAARenderPass.js"></script>
 
 
     <script src="js/cameraMgr.js"></script>
@@ -60,62 +75,6 @@
     <script src="js/OrbitControls-Ex.js"></script>
     <script src="js/modelList.js"></script>
     <script src="framework/video6.2.5.js/js/video.min.js"></script>
-
-    <!-- NodeLibrary -->
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/GLNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/RawNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/TempNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/InputNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/ConstNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/FunctionNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/FunctionCallNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/NodeBuilder.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/NodeLib.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/NodeMaterial.js"></script>
-
-    <!-- Accessors -->
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/accessors/PositionNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/accessors/NormalNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/accessors/UVNode.js"></script>
-<!--    <script src="../../ThreeLibrary/three2/examples/js/nodes/accessors/ScreenUVNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/accessors/ColorsNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/accessors/CameraNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/accessors/ReflectNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/accessors/LightNode.js"></script>&ndash;&gt;-->
-
-    <!-- Inputs -->
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/inputs/IntNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/inputs/FloatNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/inputs/ColorNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/inputs/Vector2Node.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/inputs/Vector3Node.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/inputs/Vector4Node.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/inputs/TextureNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/inputs/CubeTextureNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/inputs/Matrix4Node.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/inputs/MirrorNode.js"></script>
-
-    <!-- Math -->
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/math/Math1Node.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/math/Math2Node.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/math/Math3Node.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/math/OperatorNode.js"></script>
-
-    <!-- Utils -->
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/utils/SwitchNode.js"></script>
-<!--    <script src="../../ThreeLibrary/three2/examples/js/nodes/utils/JoinNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/utils/TimerNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/utils/RoughnessToBlinnExponentNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/utils/VelocityNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/utils/LuminanceNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/utils/ColorAdjustmentNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/utils/NoiseNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/utils/ResolutionNode.js"></script>-->
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/utils/BlurNode.js"></script>
-
-    <!-- Phong Material -->
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/materials/PhongNode.js"></script>
-    <script src="../../ThreeLibrary/three2/examples/js/nodes/materials/PhongNodeMaterial.js"></script>
 
 
 </head>
@@ -131,7 +90,7 @@
 <!--<canvas  id="cvs" style="background-color:black"></canvas>-->
 <!--</div>-->
 <div id="autosw" style="position:absolute; left:90%; bottom:20px">
-    <a href="javascript:changeCameraCtrl();">
+    <a id="button" href="javascript:changeControls();">
         <img id="imgCamerCtrl" src="image/man-tin.png" width="50px" height="50px">
     </a>
 </div>
@@ -144,8 +103,7 @@
     </div>
     <div id="Close"><a href="javascript:closebox();"><img src="image/delete.ico" /></a></div>
 </div>
-<script src="js/show.js"></script>
-<script src="js/showRoom.js"></script>
+<script src="js/showroom.js"></script>
 <script src="js/qwebchannel.js"></script>
 <script>
     try{

@@ -8,7 +8,9 @@ var gDefaultTag=undefined;
 var gSelectTag=null;
 var gRaycaster=undefined;
 var gMouse= new THREE.Vector2();
-var clock = new THREE.Clock();;
+var clock = new THREE.Clock();
+console.log(clock);
+
 var gnModelIndex=0;
 var gSelectList=[];
 var gModeMap={};
@@ -20,21 +22,21 @@ var windowHalfX = window.innerWidth / 2;
 var windowHalfY = window.innerHeight / 2;
 var groundMirrorMaterial;
 
-
+//背景变量
 var cameraCube, sceneCube;
 var textureEquirec, textureCube, textureSphere;
 var cubeMesh, sphereMesh;
 var sphereMaterial;
 var refract;
 
-
+//tomaping变量
 var composer;
 var standardMaterial, standardMaterialPremultiplied, floorMaterial;
 
 var params = {
     opacity: 1.0,
-    roughness: 1.0,
-    bumpScale: 1.0,
+    roughness: 1.0,//该纹理的绿色通道用于改变材料的粗糙度。
+    bumpScale: 1.0,//凹凸贴图影响材质的程度。典型的范围是0-1。缺省值是1。
     exposure: 3.0,
     whitePoint: 5.0,
     toneMapping: "Uncharted2",
@@ -49,6 +51,23 @@ var toneMappingOptions = {
     Cineon: THREE.CineonToneMapping
 };
 
+//SSAA变量
+
+var composer2, copyPass2;
+var cameraP, ssaaRenderPassP;
+var cameraO, ssaaRenderPassO;
+
+var params2 = {
+    sampleLevel: 4,
+    renderToScreen: false,
+    unbiased: true,
+    camera: 'perspective',
+    clearColor: 'black',
+    clearAlpha: 1.0,
+    autoRotate: true
+
+};
+
 //*********************************************************************
 
 //初始化、动画
@@ -58,8 +77,8 @@ animate();
 
 function init() {
     initScene();
-    initRenderer();
     initCamera();
+    initRenderer();
     initLight();
     loadModel();
     //homeEve();
@@ -69,53 +88,37 @@ function init() {
     initEvent();
     initControls();
     initHelp();
+
 }
 function animate() {
-
     requestAnimationFrame( animate );
     stats.begin();
     render();
     stats.end();
-
 }
 function render() {
-
-    if ( standardMaterial !== undefined ) {
-
-        standardMaterial.roughness = params.roughness;
-        standardMaterial.bumpScale = - 0.05 * params.bumpScale;
-        standardMaterial.opacity = params.opacity;
-
-    }
-    if( renderer.toneMapping !== toneMappingOptions[ params.toneMapping ] ) {
-        renderer.toneMapping = toneMappingOptions[ params.toneMapping ];
-        if( standardMaterial ) standardMaterial.needsUpdate = true;
-        if( floorMaterial ) floorMaterial.needsUpdate = true;
-    }
-    renderer.toneMappingExposure = params.exposure;
-    renderer.toneMappingWhitePoint = params.whitePoint;
 
     camera.lookAt(scene.position )
     //cameraCube.rotation.copy( camera.rotation );
 
     Rendering();
+
     if( params.renderMode === "Composer" ) {
         composer.render();
     }
     else {
-        renderer.render( scene, camera );
-
-       // renderer.render( sceneCube, cameraCube );
+        // renderer.render( sceneCube, cameraCube );
         renderer.render(scene, camera);
 
     }
 
 
+   // composer2.render();
+
 }
 function Rendering(){
-
-
     var delta = clock.getDelta();
+   // console.log(delta);
     if( controls1 &&  controls1.enabled)
     {
         controls1.update( delta );// required if controls.enableDamping = true, or if controls.autoRotate = true
@@ -133,6 +136,22 @@ function Rendering(){
 
     }
 
+    //console.log(standardMaterial !== undefined);
+    if ( standardMaterial !== undefined ) {
+
+        standardMaterial.roughness = params.roughness;
+        standardMaterial.bumpScale = - 0.05 * params.bumpScale;
+        standardMaterial.opacity = params.opacity;
+
+    }
+    if( renderer.toneMapping !== toneMappingOptions[ params.toneMapping ] ) {
+        renderer.toneMapping = toneMappingOptions[ params.toneMapping ];
+        if( standardMaterial ) standardMaterial.needsUpdate = true;
+
+    }
+    //renderer.toneMappingExposure = params.exposure;
+   // renderer.toneMappingWhitePoint = params.whitePoint;
+
 
 }
 function initScene(){
@@ -141,17 +160,17 @@ function initScene(){
     document.body.appendChild( container );
 
     //gScene.background = new THREE.Color( 0x000000);
-   // scene.background = new THREE.Color().setHSL( 0.6, 0, 1 );
+    // scene.background = new THREE.Color().setHSL( 0.6, 0, 1 );
 
     scene = new THREE.Scene();
     //scene.background = new THREE.Color( 0xffffff );
-   // scene.fog = new THREE.FogExp2( 0xffffff, 0.00015 );
+    // scene.fog = new THREE.FogExp2( 0xffffff, 0.00015 );
 }
 function initCamera() {
 
     camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 10000);
     camera.position.set( 0, 100, 300 );
-   // camera.position.set(0, 800,0);
+    // camera.position.set(0, 800,0);
     //camera.rotation.x=Math.PI * 0.47;
 
 }
@@ -167,8 +186,8 @@ function initControls(){
         controls1.minPolarAngle = Math.PI * 0.01;
         // controls1.maxPolarAngle = 0.9 * Math.PI / 2;
         controls1.maxPolarAngle = Math.PI * 0.47;
-       // controls1.target.set(0, 30, 0);
-       // controls1.maxDistance = 500;
+        // controls1.target.set(0, 30, 0);
+        // controls1.maxDistance = 500;
         //controls1.minDistance = 0;
 
 
@@ -190,121 +209,16 @@ function initControls(){
     scene.add(controls3);
 
 }
-function initLight() {
-
-    ambient = new THREE.AmbientLight(0xffffff );
-    scene.add( ambient );
-    //自动行走
- /*   guide = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({color: 0xffffff}));
-    guide.position.set(1500, 900, -6000);
-    guide.castShadow=true;
-    guide.receiveShadow=true;
-    scene.add(guide);*/
-    /*
-     gLightMgr=new LightMgr(gScene, false);
-     //gLightMgr.isHelper=true;
-     var ambient=gLightMgr.addAmbientLight(0xffffffff, 1.0);
-
-
-     var spotPos=[
-     {"x":1500,       "y":2000,   "z": -3000}
-     // {"x":6500,      "y":3000,   "z": -6000},
-     // {"x":12500,     "y":3000,   "z": -8000},
-     //{"x":18500,     "y":3000,   "z": -8000},
-     ];
-     var spotParam=[
-     {"castShadow":true, "mapW":104, "mapH":104, "mapN":104,"mapFar":104,"mapFov":104,"target":null},
-     {"castShadow":true, "mapW":104, "mapH":104, "mapN":104,"mapFar":104,"mapFov":104,"target":null},
-     {"castShadow":true, "mapW":104, "mapH":104, "mapN":104,"mapFar":104,"mapFov":104,"target":null},
-     {"castShadow":true, "mapW":104, "mapH":104, "mapN":104,"mapFar":104,"mapFov":104,"target":null}
-     ];
-
-     for(var i in spotPos){
-     var light=gLightMgr.addSpotLight(0xffffff, 8.5, 8500);
-     //开启阴影
-     light.castShadow = spotParam[i].castShadow;
-     light.position.set( spotPos[i].x, spotPos[i].y, spotPos[i].z );
-     light.target.position.set(spotPos[i].x, spotPos[i].y-500, spotPos[i].z);//=guide;
-     light.penumbra = 0.05;
-     light.decay = 2;
-     light.angle=Math.PI/3;
-     light.intensity=1.2;
-
-
-     var lightMesh = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial({color: 0x00ff00}));
-     lightMesh.position.set(1500, 350, -3000);
-    scene.add(lightMesh);
-     light.target=lightMesh;
-
-
-     // light.penumbra =1;
-     // light.decay=2;
-     }
-     */
-    //半球光
-/*
-    hemiLight = new THREE.HemisphereLight( 0xffffff, 0xffffff, 0.6 );
-    hemiLight.color.setHSL( 0.6, 1, 0.6 );
-    hemiLight.groundColor.setHSL( 0.095, 1, 0.75 );
-    hemiLight.position.set( 0, 50, 0 );
-    scene.add( hemiLight );
-*/
-
-   // hemiLightHelper = new THREE.HemisphereLightHelper( hemiLight, 10 );
-   // scene.add( hemiLightHelper );
-
-
-    // var  dirLight, dirLightHeper, hemiLight, hemiLightHelper;
-    //方向光
-/*    dirLight = new THREE.DirectionalLight( 0xffffff, 1 );
-    dirLight.color.setHSL( 0.1, 1, 0.95 );
-    dirLight.position.set( -1, 100, 1 );
-    dirLight.position.multiplyScalar( 30 );
-    scene.add( dirLight );
-
-    dirLight.castShadow = true;
-
-    dirLight.shadow.mapSize.width = 2048;
-    dirLight.shadow.mapSize.height = 2048;
-
-    var d = 50;
-
-    dirLight.shadow.camera.left = -d;
-    dirLight.shadow.camera.right = d;
-    dirLight.shadow.camera.top = d;
-    dirLight.shadow.camera.bottom = -d;
-
-    dirLight.shadow.camera.far = 3500;
-    dirLight.shadow.bias = -0.0001;
-
-    */
-
-    //点光源扩展
-    pointLight = new THREE.PointLight(0xcccccc, 1.7, 1000);
-    pointLight.position.set(0,20,0);
-    pointLight.castShadow = true;
-    scene.add( pointLight);
-  //  scene.add(new THREE.PointLightHelper(pointLight,5));
-
-   // var light2 = new THREE.DirectionalLight( 0xaabbff, 1 );
-   // light2.position.x = 300;
-   // light2.position.y = 250;
-   // light2.position.z = -500;
-  //  scene.add( light2 );
-  //  dirLightHeper = new THREE.DirectionalLightHelper( light2, 50 )
-   // scene.add( dirLightHeper );
-
-}
 function initRenderer(){
 
     renderer = new THREE.WebGLRenderer(
         {
-            antialias: true
-           // precision: "highp",
+            antialias:true
+            // precision: "highp",
             //alpha: true,
-           // premultipliedAlpha: false,
-           // stencil: false,
-           // preserveDrawingBuffer: true //是否保存绘图缓冲
+            // premultipliedAlpha: false,
+            // stencil: false,
+            // preserveDrawingBuffer: true //是否保存绘图缓冲
         }
     );
     //renderer.sortObjects = true;
@@ -312,23 +226,12 @@ function initRenderer(){
     //renderer.shadowMap.enabled = true;
     //renderer.shadowMapSoft = true;
     //renderer.shadowMapType = THREE.PCFSoftShadowMap;
-    //renderer.gammaInput = true;
-    //renderer.gammaOutput = true;
     //renderer.shadowMap.renderReverseSided = false;
+
     renderer.shadowMap.enabled = true;
     renderer.gammaInput = true;
     renderer.gammaOutput = true;
-
-    composer = new THREE.EffectComposer( renderer );
-    composer.setSize( window.innerWidth, window.innerHeight );
-
-    var renderScene = new THREE.RenderPass( scene, camera );
-    composer.addPass( renderScene );
-
-    var copyPass = new THREE.ShaderPass( THREE.CopyShader );
-    copyPass.renderToScreen = true;
-    composer.addPass( copyPass );
-
+    postProcessing();  //后期处理
     renderer.setPixelRatio( window.devicePixelRatio );
     renderer.setSize( window.innerWidth, window.innerHeight  );
 
@@ -336,6 +239,35 @@ function initRenderer(){
     renderer.setFaceCulling( THREE.CullFaceNone );
 
     container.appendChild( renderer.domElement );
+}
+function postProcessing(){
+
+    //tonMaping
+    //在render循环中，使用EffectComposer渲染场景、应用通道，并输出结果
+    composer = new THREE.EffectComposer( renderer );
+    composer.setSize( window.innerWidth, window.innerHeight );
+
+    //RenderPass通道，这个通道会渲染场景，但不会将渲染结果输出到屏幕上。
+    //RenderPass/该通道在指定的场景和相机的基础上渲染出一个新场景
+    var renderScene = new THREE.RenderPass( scene, camera );
+    composer.addPass( renderScene );
+
+    // ShaderPass/使用该通道你可以传入一个自定义的着色器，用来生成高级的、自定义的后期处理通道
+    //传入了CopyShader着色器，用于拷贝渲染结果
+    var copyPass = new THREE.ShaderPass( THREE.CopyShader );
+    copyPass.renderToScreen = true;
+    composer.addPass( copyPass );
+
+    //SSAA
+ /*   composer2 = new THREE.EffectComposer( renderer );
+    ssaaRenderPassP = new THREE.SSAARenderPass( scene, camera );
+    ssaaRenderPassP.sampleLevel = params.sampleLevel;
+    composer2.addPass( ssaaRenderPassP );
+    //ssaaRenderPassO = new THREE.SSAARenderPass( scene, cameraO );
+    //composer2.addPass( ssaaRenderPassO );
+    copyPass = new THREE.ShaderPass( THREE.CopyShader );
+    copyPass.renderToScreen = true;
+    composer2.addPass( copyPass );*/
 }
 function loadObj(sName) {
 
@@ -352,6 +284,7 @@ function loadObj(sName) {
     groundMirror.rotateX( - Math.PI / 2 );
     groundMirror.material.side = THREE.DoubleSide;
     groundMirror.receiveShadow=true;
+    groundMirror.castShadow = true;
     group.add( groundMirror );
 
     //make floor
@@ -397,10 +330,21 @@ function loadObj(sName) {
     var sObjUrl="3d_files/Mirror/"+sName+"/";
     loader.load( sObjUrl+sName+'.obj', function ( object ) {
 
+      // var loader = new THREE.TextureLoader();
+      //  loader.setPath( 'models/obj/vive-controller/' );
+
+        var controller = object.children[ 0 ];
+      //  controller.material.map = loader.load( 'onepointfive_texture.png' );
+      //  controller.material.specularMap = loader.load( 'onepointfive_spec.png' );
+        controller.castShadow = true;
+        controller.receiveShadow = true;
+
         object.traverse( function ( child ) {
-
+            var scale = 1.0;
             if ( child instanceof THREE.Mesh ) {
-
+                child.geometry.center();
+                child.geometry.computeBoundingSphere();
+                scale = 0.2*child.geometry.boundingSphere.radius;
                 //child.material = gBgMirror.material;
                 child.material.needsUpdate = true;
                 child.material.map = texture;
@@ -409,6 +353,7 @@ function loadObj(sName) {
                 child.material.transparent=true;
                 child.material.opacity= 0.8;
                 child.receiveShadow =true;
+                child.castShadow = true;
                 child.position.set(-97,0,68);
                 child.scale.x =  child.scale.y =  child.scale.z = 0.01;
                 child.updateMatrix();
@@ -416,7 +361,9 @@ function loadObj(sName) {
             }
 
         } );
-
+   /*     object.scale.x /= scale;
+        object.scale.y /= scale;
+        object.scale.z /= scale;*/
         object.position.y = -2;
         group.add( object );
 
@@ -545,7 +492,7 @@ function backgroundFloor(){
 }
 function loadModel() {
 
-   // model
+    // model
     if(gModelList.length<(gnModelIndex+1))
     {
         return;
@@ -584,8 +531,8 @@ function loadModel() {
         // materials.emissive = 0xff0000;
         // materials.shininess = 10;
         // materials.preload();
-         //materials.flatShading = THREE.SmoothShading;
-         materials.shininess = 0;
+        //materials.flatShading = THREE.SmoothShading;
+        materials.shininess = 0;
 
         var objLoader = new THREE.OBJLoader();
         objLoader.setMaterials( materials );
@@ -603,11 +550,20 @@ function loadModel() {
                     // child.material.map = texture;
                     child.castShadow =true;
                     child.receiveShadow =true;
-
                     child.updateMatrix();
 
-                  //  var boxHelper = new THREE.BoundingBoxHelper(child, 0x999999);
+                    //  var boxHelper = new THREE.BoundingBoxHelper(child, 0x999999);
                     //gScene.add(boxHelper);
+          /*          child.material = gemBackMaterial;
+                    var second = child.clone();
+                    second.material = gemFrontMaterial;
+
+                    var parent = new THREE.Group();
+                    parent.add( second );
+                    parent.add( child );
+                    scene.add( parent );
+
+                    objects.push( parent );*/
 
 
                 }
@@ -641,6 +597,22 @@ function loadModel() {
 }
 function toneMaping(){
 
+    // Textures
+    var r = "3d_files/texture/cube/Bridge2/";
+    var urls = [ r + "posx.jpg", r + "negx.jpg",
+        r + "posy.jpg", r + "negy.jpg",
+        r + "posz.jpg", r + "negz.jpg" ];
+
+    var r2 = "3d_files/texture/cube/MilkyWay/";
+    var urls2 = [ r2 + "dark-s_px.jpg", r2 + "dark-s_nx.jpg",
+        r2 + "dark-s_py.jpg", r2 + "dark-s_ny.jpg",
+        r2 + "dark-s_pz.jpg", r2 + "dark-s_nz.jpg" ];
+
+    textureCube = new THREE.CubeTextureLoader().load( urls2 );
+    textureCube.format = THREE.RGBFormat;
+    textureCube.mapping = THREE.CubeReflectionMapping;
+
+
 
     standardMaterial = new THREE.MeshStandardMaterial( {
         bumpScale: - 0.05,
@@ -649,9 +621,27 @@ function toneMaping(){
         roughness: 0.8,
         premultipliedAlpha: true,
         transparent: true
+       // envMap:textureCube
+
     } );
+
+
+ /*   standardMaterial = new THREE.MeshPhysicalMaterial( {
+        map: null,
+        color: 0xffffff,
+        metalness: 0.0,
+        roughness: 0,
+        opacity: 0.15,
+        side: THREE.FrontSide,
+        transparent: true,
+        envMapIntensity: 1,
+        premultipliedAlpha: true,
+        envMap:textureCube
+    } );*/
+
+
     var textureLoader = new THREE.TextureLoader();
-/*   textureLoader.load( "3d_files/texture/brick_diffuse.jpg", function( map ) {
+    /*   textureLoader.load( "3d_files/texture/brick_diffuse.jpg", function( map ) {
      map.wrapS = THREE.RepeatWrapping;
      map.wrapT = THREE.RepeatWrapping;
      map.anisotropy = 4;
@@ -675,42 +665,47 @@ function toneMaping(){
      standardMaterial.roughnessMap = map;
      standardMaterial.needsUpdate = true;
      } );*/
-     textureLoader.load( "3d_files/texture/maping2/hardwood2_diffuse.jpg", function( map ) {
-     map.wrapS = THREE.RepeatWrapping;
-     map.wrapT = THREE.RepeatWrapping;
-     map.anisotropy = 4;
-     map.repeat.set( 1, 1 );
-     standardMaterial.map = map;
-     standardMaterial.needsUpdate = true;
-     } );
-     textureLoader.load( "3d_files/texture/maping2/hardwood2_bump.jpg", function( map ) {
-     map.wrapS = THREE.RepeatWrapping;
-     map.wrapT = THREE.RepeatWrapping;
-     map.anisotropy = 4;
-     map.repeat.set( 1, 1 );
-     standardMaterial.bumpMap = map;
-     standardMaterial.needsUpdate = true;
-     } );
-     textureLoader.load( "3d_files/texture/maping2/hardwood2_roughness.jpg", function( map ) {
-     map.wrapS = THREE.RepeatWrapping;
-     map.wrapT = THREE.RepeatWrapping;
-     map.anisotropy = 4;
-     map.repeat.set( 1, 1 );
-     standardMaterial.roughnessMap = map;
-     standardMaterial.needsUpdate = true;
-     } );
+    textureLoader.load( "3d_files/texture/maping2/hardwood2_diffuse.jpg", function( map ) {
+        map.wrapS =  map.wrapT = THREE.RepeatWrapping;
+        map.anisotropy = 4;
+        map.repeat.set( 1, 1 );
+        standardMaterial.map = map;
+        standardMaterial.needsUpdate = true;
+        standardMaterial.magFilter = THREE.NearestFilter;
+        standardMaterial.format = THREE.RGBFormat;
+    } );
+    textureLoader.load( "3d_files/texture/maping2/hardwood2_bump.jpg", function( map ) {
+        map.wrapS =  map.wrapT = THREE.RepeatWrapping;
+        map.anisotropy = 4;
+        map.repeat.set( 1, 1 );
+        standardMaterial.bumpMap = map;
+        standardMaterial.needsUpdate = true;
+        standardMaterial.magFilter = THREE.NearestFilter;
+        standardMaterial.format = THREE.RGBFormat;
+    } );
+    textureLoader.load( "3d_files/texture/maping2/hardwood2_roughness.jpg", function( map ) {
+        map.wrapS =  map.wrapT = THREE.RepeatWrapping;
+        map.anisotropy = 4;
+        map.repeat.set( 1, 1 );
+        standardMaterial.roughnessMap = map;
+        standardMaterial.needsUpdate = true;
+        standardMaterial.magFilter = THREE.NearestFilter;
+        standardMaterial.format = THREE.RGBFormat;
+    } );
     group2 = new THREE.Group();
     scene.add( group2 );
 
     //var geometry = new THREE.TorusKnotGeometry( 18, 8, 150, 20 );
-    var geometry = new THREE.BoxBufferGeometry( 236, 1, 167 );
+    var geometry = new THREE.BoxBufferGeometry( 238, 0.5, 167 );
     var mesh = new THREE.Mesh( geometry, standardMaterial );
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    mesh.position.Y= 3;
+    mesh.position.set(-1,3,0);
     group2.add( mesh );
 
-    // Materials
+
+
+  // Materials
     var hdrpath = "3d_files/texture/cube/pisaHDR/";
     var hdrformat = '.hdr';
     var hdrurls = [
@@ -719,20 +714,150 @@ function toneMaping(){
         hdrpath + 'pz' + hdrformat, hdrpath + 'nz' + hdrformat
     ];
 
-    var hdrCubeMap = new THREE.HDRCubeTextureLoader().load( THREE.UnsignedByteType, hdrurls, function ( hdrCubeMap ) {
 
-        var pmremGenerator = new THREE.PMREMGenerator( hdrCubeMap );
-        pmremGenerator.update( renderer );
+     var hdrCubeMap = new THREE.HDRCubeTextureLoader().load( THREE.UnsignedByteType, hdrurls, function ( hdrCubeMap ) {
 
-        var pmremCubeUVPacker = new THREE.PMREMCubeUVPacker( pmremGenerator.cubeLods );
-        pmremCubeUVPacker.update( renderer );
+     var pmremGenerator = new THREE.PMREMGenerator( hdrCubeMap );
+     pmremGenerator.update( renderer );
 
-        standardMaterial.envMap = pmremCubeUVPacker.CubeUVRenderTarget.texture;
-        standardMaterial.needsUpdate = true;
+     var pmremCubeUVPacker = new THREE.PMREMCubeUVPacker( pmremGenerator.cubeLods );
+     pmremCubeUVPacker.update( renderer );
 
-    } );
+     standardMaterial.envMap = pmremCubeUVPacker.CubeUVRenderTarget.texture;
+     standardMaterial.needsUpdate = true;
+
+     } );
+
+}
+function initLight() {
+
+    ambient = new THREE.AmbientLight(0xffffff );
+    scene.add( ambient );
+    //自动行走
+    /*   guide = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({color: 0xffffff}));
+     guide.position.set(1500, 900, -6000);
+     guide.castShadow=true;
+     guide.receiveShadow=true;
+     scene.add(guide);*/
+    /*
+     gLightMgr=new LightMgr(gScene, false);
+     //gLightMgr.isHelper=true;
+     var ambient=gLightMgr.addAmbientLight(0xffffffff, 1.0);
 
 
+     var spotPos=[
+     {"x":1500,       "y":2000,   "z": -3000}
+     // {"x":6500,      "y":3000,   "z": -6000},
+     // {"x":12500,     "y":3000,   "z": -8000},
+     //{"x":18500,     "y":3000,   "z": -8000},
+     ];
+     var spotParam=[
+     {"castShadow":true, "mapW":104, "mapH":104, "mapN":104,"mapFar":104,"mapFov":104,"target":null},
+     {"castShadow":true, "mapW":104, "mapH":104, "mapN":104,"mapFar":104,"mapFov":104,"target":null},
+     {"castShadow":true, "mapW":104, "mapH":104, "mapN":104,"mapFar":104,"mapFov":104,"target":null},
+     {"castShadow":true, "mapW":104, "mapH":104, "mapN":104,"mapFar":104,"mapFov":104,"target":null}
+     ];
+
+     for(var i in spotPos){
+     var light=gLightMgr.addSpotLight(0xffffff, 8.5, 8500);
+     //开启阴影
+     light.castShadow = spotParam[i].castShadow;
+     light.position.set( spotPos[i].x, spotPos[i].y, spotPos[i].z );
+     light.target.position.set(spotPos[i].x, spotPos[i].y-500, spotPos[i].z);//=guide;
+     light.penumbra = 0.05;
+     light.decay = 2;
+     light.angle=Math.PI/3;
+     light.intensity=1.2;
+
+
+     var lightMesh = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial({color: 0x00ff00}));
+     lightMesh.position.set(1500, 350, -3000);
+     scene.add(lightMesh);
+     light.target=lightMesh;
+
+
+     // light.penumbra =1;
+     // light.decay=2;
+     }
+     */
+    //半球光
+    /*
+     hemiLight = new THREE.HemisphereLight( 0xffffff, 0xffffff, 0.6 );
+     hemiLight.color.setHSL( 0.6, 1, 0.6 );
+     hemiLight.groundColor.setHSL( 0.095, 1, 0.75 );
+     hemiLight.position.set( 0, 50, 0 );
+     scene.add( hemiLight );
+     */
+
+    // hemiLightHelper = new THREE.HemisphereLightHelper( hemiLight, 10 );
+    // scene.add( hemiLightHelper );
+
+
+    // var  dirLight, dirLightHeper, hemiLight, hemiLightHelper;
+    //方向光
+    /*    dirLight = new THREE.DirectionalLight( 0xffffff, 1 );
+     dirLight.color.setHSL( 0.1, 1, 0.95 );
+     dirLight.position.set( -1, 100, 1 );
+     dirLight.position.multiplyScalar( 30 );
+     scene.add( dirLight );
+
+     dirLight.castShadow = true;
+
+     dirLight.shadow.mapSize.width = 2048;
+     dirLight.shadow.mapSize.height = 2048;
+
+     var d = 50;
+
+     dirLight.shadow.camera.left = -d;
+     dirLight.shadow.camera.right = d;
+     dirLight.shadow.camera.top = d;
+     dirLight.shadow.camera.bottom = -d;
+
+     dirLight.shadow.camera.far = 3500;
+     dirLight.shadow.bias = -0.0001;
+
+     */
+
+    //点光源扩展
+    pointLight = new THREE.PointLight(0xcccccc, 1.7, 1000);
+    pointLight.position.set(0,20,0);
+    pointLight.castShadow = true;
+    scene.add( pointLight);
+    //  scene.add(new THREE.PointLightHelper(pointLight,5));
+
+    // var light2 = new THREE.DirectionalLight( 0xaabbff, 1 );
+    // light2.position.x = 300;
+    // light2.position.y = 250;
+    // light2.position.z = -500;
+    //  scene.add( light2 );
+    //  dirLightHeper = new THREE.DirectionalLightHelper( light2, 50 )
+    // scene.add( dirLightHeper );
+
+    /*   var gui, shadowCameraHelper, shadowConfig = {
+
+     shadowCameraVisible: true,
+     shadowCameraNear: 750,
+     shadowCameraFar: 4000,
+     shadowCameraFov: 30,
+     shadowBias: -0.0002
+
+     };
+
+     sunLight = new THREE.SpotLight( 0xffffff, 0.3, 0, Math.PI/2 );
+     sunLight.position.set( 100, 200, 1000 );;
+
+     sunLight.castShadow = true;
+
+     sunLight.shadow = new THREE.LightShadow( new THREE.PerspectiveCamera( shadowConfig.shadowCameraFov, 1, shadowConfig.shadowCameraNear, shadowConfig.shadowCameraFar ) );
+     sunLight.shadow.bias = shadowConfig.shadowBias;
+
+     scene.add( sunLight );
+
+     // SHADOW CAMERA HELPER
+
+     shadowCameraHelper = new THREE.CameraHelper( sunLight.shadow.camera );
+     shadowCameraHelper.visible = shadowConfig.shadowCameraVisible;
+     scene.add( shadowCameraHelper );*/
 }
 function initEvent(){
     window.addEventListener( 'resize', onWindowResize, false );
@@ -760,13 +885,13 @@ function initHelp(){
     info.innerHTML = 'Drag to change the view';
     container.appendChild( info );
 
-   //var cameraParObj = new THREE.Object3D();
+    //var cameraParObj = new THREE.Object3D();
     //cameraParObj.position.y = 200;
     //cameraParObj.position.z = 700;
-   // scene.add(cameraParObj);
-   // cameraParObj.add(cameraCube);
-   // var cameraHelper2 = new THREE.CameraHelper(cameraCube);
-   // scene.add(cameraHelper2);
+    // scene.add(cameraParObj);
+    // cameraParObj.add(cameraCube);
+    // var cameraHelper2 = new THREE.CameraHelper(cameraCube);
+    // scene.add(cameraHelper2);
 
 
 }
@@ -802,18 +927,18 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
     renderer.setSize( window.innerWidth, window.innerHeight );
 
-   // cameraCube.aspect = window.innerWidth / window.innerHeight;
+    // cameraCube.aspect = window.innerWidth / window.innerHeight;
     //cameraCube.updateProjectionMatrix();
     //controls1.handleResize();
     composer.setSize(  window.innerWidth, window.innerHeight );
 
 
- /*  if (controls1 && controls1.enabled){
-        controls1.handleResize();
-    }
-    if (controls2 && controls2.enabled){
-        controls2.handleResize();
-    }*/
+    /*  if (controls1 && controls1.enabled){
+     controls1.handleResize();
+     }
+     if (controls2 && controls2.enabled){
+     controls2.handleResize();
+     }*/
 
 
 
@@ -827,6 +952,83 @@ function onKeyDown(event) {
 }
 function onKeyUp(event) {
     console.log(event.keyCode);
+}
+function raycastProc() {
+    var vector = new THREE.Vector3( gMouse.x, gMouse.y, 0.5 );
+    //gProjector.unprojectVector( vector,camera);  //旧版本
+    vector.unproject( camera );
+
+    var raycaster = new THREE.Raycaster( camera.position, vector.sub( camera.position ).normalize() );
+    var intersects = raycaster.intersectObjects( gSelectList, true );
+
+    if (0<intersects.length) {
+
+        if (gSelectTag != intersects[0].object) {
+            if (gSelectTag) gSelectTag.material.color.setHex(gSelectTag.currentHex);
+            if(null!=gSelectTag){
+                controls3.detach( gSelectTag );
+            }
+            gSelectTag = intersects[0].object;
+            gSelectTag.currentHex = gSelectTag.material.color.getHex();
+            gSelectTag.material.color.set( 0xff0000 );
+            document.body.style.cursor = "pointer";
+        }
+    } else {
+        if (gSelectTag) {
+            gSelectTag.material.color.set(gSelectTag.currentHex);
+            gSelectTag = null;
+            document.body.style.cursor = "auto";
+        }
+
+    }
+}
+function toScreenPosition(obj, camera) {
+    var vector = new THREE.Vector3();
+    var widthHalf = 0.5*renderer.context.canvas.width;
+    var heightHalf = 0.5*renderer.context.canvas.height;
+    obj.updateMatrixWorld();
+    vector.setFromMatrixPosition(obj.matrixWorld);
+    vector.project(camera);
+    vector.x = ( vector.x * widthHalf ) + widthHalf;
+    vector.y = - ( vector.y * heightHalf ) + heightHalf;
+    return {
+        x: vector.x,
+        y: vector.y
+    };
+};
+function changeControls() {
+
+
+    if(controls2.enabled){
+        console.log("controls2是真的")
+        document.getElementById('imgCamerCtrl').src = "image/man-tin.png";
+        controls2.enabled=false;
+        controls1.enabled=true;
+    }else{
+        console.log("controls2是假的")
+
+        document.getElementById('imgCamerCtrl').src = "image/man-zou.png";
+        controls2.enabled=true;
+        controls1.enabled=false;
+    }
+
+
+    //  console.log("控制器运行中");
+
+
+}
+function openBox(param) {
+    controls1.enabled=false;
+    controls2.enabled=false;
+    $("#showframe",parent.document.body).attr("src",gUrlList[param.type]);
+    $("#box").css("display", "block");
+}
+function closebox() {
+    $("#box").css("display", "none");
+    controls1.enabled=true;
+    controls2.enabled=true;
+
+
 }
 function initGui() {
     var gui = new dat.gui.GUI();
@@ -900,7 +1102,6 @@ function initGui() {
      */
     gui.open();
 }
-//*********************************************************************
 function creatCube() {
     for (var i = 0; i < 50; i++) {
         var geometry = new THREE.CubeGeometry(240, 240, 240);
@@ -909,85 +1110,8 @@ function creatCube() {
         mesh.position.x = Math.random() * 1000 - 500;
         mesh.position.y = Math.random() * 1000 - 500;
         mesh.position.z = Math.random() * 1000 - 500;
-       scene.add(mesh);
+        scene.add(mesh);
     }
-}
-function raycastProc() {
-    var vector = new THREE.Vector3( gMouse.x, gMouse.y, 0.5 );
-    //gProjector.unprojectVector( vector,camera);  //旧版本
-    vector.unproject( camera );
-
-    var raycaster = new THREE.Raycaster( camera.position, vector.sub( camera.position ).normalize() );
-    var intersects = raycaster.intersectObjects( gSelectList, true );
-
-    if (0<intersects.length) {
-
-        if (gSelectTag != intersects[0].object) {
-            if (gSelectTag) gSelectTag.material.color.setHex(gSelectTag.currentHex);
-            if(null!=gSelectTag){
-                controls3.detach( gSelectTag );
-            }
-            gSelectTag = intersects[0].object;
-            gSelectTag.currentHex = gSelectTag.material.color.getHex();
-            gSelectTag.material.color.set( 0xff0000 );
-            document.body.style.cursor = "pointer";
-        }
-    } else {
-        if (gSelectTag) {
-            gSelectTag.material.color.set(gSelectTag.currentHex);
-            gSelectTag = null;
-            document.body.style.cursor = "auto";
-        }
-
-    }
-}
-function toScreenPosition(obj, camera) {
-    var vector = new THREE.Vector3();
-    var widthHalf = 0.5*renderer.context.canvas.width;
-    var heightHalf = 0.5*renderer.context.canvas.height;
-    obj.updateMatrixWorld();
-    vector.setFromMatrixPosition(obj.matrixWorld);
-    vector.project(camera);
-    vector.x = ( vector.x * widthHalf ) + widthHalf;
-    vector.y = - ( vector.y * heightHalf ) + heightHalf;
-    return {
-        x: vector.x,
-        y: vector.y
-    };
-};
-function changeControls() {
-
-
-    if(controls2.enabled){
-        console.log("controls2是真的")
-        document.getElementById('imgCamerCtrl').src = "image/man-tin.png";
-        controls2.enabled=false;
-        controls1.enabled=true;
-    }else{
-        console.log("controls2是假的")
-
-        document.getElementById('imgCamerCtrl').src = "image/man-zou.png";
-        controls2.enabled=true;
-        controls1.enabled=false;
-    }
-
-
-  //  console.log("控制器运行中");
-
-
-}
-function openBox(param) {
-    controls1.enabled=false;
-    controls2.enabled=false;
-    $("#showframe",parent.document.body).attr("src",gUrlList[param.type]);
-    $("#box").css("display", "block");
-}
-function closebox() {
-    $("#box").css("display", "none");
-    controls1.enabled=true;
-    controls2.enabled=true;
-
-
 }
 function fillScene() {
 
@@ -1156,7 +1280,7 @@ function addShape( shape, extrudeSettings, color, x, y, z, rx, ry, rz, s ) {
 
     var imgUrl2="3d_files/texture/bk/";
 
-     var texture = loader.load(imgUrl2+'00002VRay.png');
+    var texture = loader.load(imgUrl2+'00002VRay.png');
 
     // it's necessary to apply these settings in order to correctly display the texture on a shape geometry
 
@@ -1190,7 +1314,7 @@ function addShape( shape, extrudeSettings, color, x, y, z, rx, ry, rz, s ) {
     //mesh.scale.set( s, s, s );
     //group.add( mesh );
     mesh.rotateX(-Math.PI / 2);
-   // mesh.position.set(0,0,0);
+    // mesh.position.set(0,0,0);
     mesh.position.set(-115,100,80);
     mesh.receiveShadow=true;
     scene.add(mesh);
