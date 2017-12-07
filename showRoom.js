@@ -651,7 +651,7 @@ function toneMaping(){
         transparent: true
     } );
     var textureLoader = new THREE.TextureLoader();
-  /*  textureLoader.load( "3d_files/texture/brick_diffuse.jpg", function( map ) {
+/*   textureLoader.load( "3d_files/texture/brick_diffuse.jpg", function( map ) {
      map.wrapS = THREE.RepeatWrapping;
      map.wrapT = THREE.RepeatWrapping;
      map.anisotropy = 4;
@@ -675,27 +675,27 @@ function toneMaping(){
      standardMaterial.roughnessMap = map;
      standardMaterial.needsUpdate = true;
      } );*/
-     textureLoader.load( "3d_files/texture/brick_diffuse.jpg", function( map ) {
+     textureLoader.load( "3d_files/texture/maping2/hardwood2_diffuse.jpg", function( map ) {
      map.wrapS = THREE.RepeatWrapping;
      map.wrapT = THREE.RepeatWrapping;
      map.anisotropy = 4;
-     map.repeat.set( 9, 0.5 );
+     map.repeat.set( 1, 1 );
      standardMaterial.map = map;
      standardMaterial.needsUpdate = true;
      } );
-     textureLoader.load( "3d_files/texture/brick_bump.jpg", function( map ) {
+     textureLoader.load( "3d_files/texture/maping2/hardwood2_bump.jpg", function( map ) {
      map.wrapS = THREE.RepeatWrapping;
      map.wrapT = THREE.RepeatWrapping;
      map.anisotropy = 4;
-     map.repeat.set( 9, 0.5 );
+     map.repeat.set( 1, 1 );
      standardMaterial.bumpMap = map;
      standardMaterial.needsUpdate = true;
      } );
-     textureLoader.load( "3d_files/texture/brick_roughness.jpg", function( map ) {
+     textureLoader.load( "3d_files/texture/maping2/hardwood2_roughness.jpg", function( map ) {
      map.wrapS = THREE.RepeatWrapping;
      map.wrapT = THREE.RepeatWrapping;
      map.anisotropy = 4;
-     map.repeat.set( 9, 0.5 );
+     map.repeat.set( 1, 1 );
      standardMaterial.roughnessMap = map;
      standardMaterial.needsUpdate = true;
      } );
