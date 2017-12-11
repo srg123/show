@@ -29,14 +29,11 @@ var cubeMesh, sphereMesh;
 var sphereMaterial;
 var refract;
 
-//tomaping变量
-var composer;
-var standardMaterial;
-
-var params = {
+//tomaping
+var params3 = {
     opacity: 1.0,
-    roughness: 1.0,//该纹理的绿色通道用于改变材料的粗糙度。
-    bumpScale: 1.0,//凹凸贴图影响材质的程度。典型的范围是0-1。缺省值是1。
+    roughness: 1.0,
+    bumpScale: 1.0,
     exposure: 3.0,
     whitePoint: 5.0,
     toneMapping: "Uncharted2",
@@ -51,10 +48,21 @@ var toneMappingOptions = {
     Cineon: THREE.CineonToneMapping
 };
 
-//SSAA变量
+var composer3;
+var standardMaterial, standardMaterialPremultiplied, floorMaterial;
 
+
+//SSAA
 var composer2, copyPass2;
 var  ssaaRenderPassP;
+
+//TAA
+var composer, copyPass, taaRenderPass, renderPass;
+var param = { TAAEnabled: "1", TAASampleLevel: 32 };
+
+
+var postprocessing = { enabled: false, ao_only: false, radius: 32 };
+
 
 var params2 = {
     sampleLevel:4,  //抗锯齿级别
@@ -78,24 +86,24 @@ var params2 = {
 //*********************************************************************
 //初始化、动画
 
-
 init();
 animate();
 function init() {
     initScene();
-    loadSerialized(data);
+
     initCamera();
     initRenderer();
-    initLight();
 
+    initLight();
+    loadSerialized(data);
     //homeEve();
-   //loadObj("shinei-dimian-01");
-    backgroundFloor();
-    toneMaping();
+    loadObj("shinei-dimian-01");
+   // backgroundFloor();
+    //toneMaping();
     initEvent();
     initControls();
     initHelp();
-    postProcessing();
+  //  initPostprocessing();
 
 }
 function animate() {
@@ -107,19 +115,25 @@ function animate() {
 function render() {
 
     camera.lookAt(scene.position )
-    //cameraCube.rotation.copy( camera.rotation );
 
     Rendering();
 
-  /*  if( params.renderMode === "Composer" ) {
-        composer.render();
-    }
-    else {*/
-        // renderer.render( sceneCube, cameraCube );
-        renderer.render(scene, camera);
-      //  composer2.render();
 
-  //  }
+    if ( postprocessing.enabled ) {
+        composer2.render();
+
+    } else {
+
+        renderer.render( scene, camera );
+
+    }
+
+ /*   if( params3.renderMode === "Composer" ) {
+        composer3.render();
+    }
+    else {
+        renderer.render( scene, camera );
+    }*/
 
 
 }
@@ -180,7 +194,7 @@ function initScene(){
 function initCamera() {
 
     camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 10000);
-    camera.position.set( 0, 100, 300 );
+    camera.position.set( 0, 200, 300 );
     // camera.position.set(0, 800,0);
     //camera.rotation.x=Math.PI * 0.47;
 
@@ -224,12 +238,12 @@ function initRenderer(){
 
     renderer = new THREE.WebGLRenderer(
         {
-            antialias:true
-            // precision: "highp",
-            //alpha: true,
-            // premultipliedAlpha: false,
-            // stencil: false,
-            // preserveDrawingBuffer: true //是否保存绘图缓冲
+            antialias: true,
+            precision: "highp",
+            alpha: true,
+            premultipliedAlpha: false,
+            stencil: false
+           // preserveDrawingBuffer: true //是否保存绘图缓冲
         }
     );
     //renderer.sortObjects = true;
@@ -239,46 +253,84 @@ function initRenderer(){
     //renderer.shadowMapType = THREE.PCFSoftShadowMap;
     //renderer.shadowMap.renderReverseSided = false;
 
+
+    //tonmapping
     renderer.shadowMap.enabled = true;
     renderer.gammaInput = true;
     renderer.gammaOutput = true;
-   // postProcessing();  //后期处理
+
+
+
     renderer.setPixelRatio( window.devicePixelRatio );
     renderer.setSize( window.innerWidth, window.innerHeight  );
 
-    renderer.autoClear = false;
-    renderer.setFaceCulling( THREE.CullFaceNone );
+  //  renderer.autoClear = false;
+  //  renderer.setFaceCulling( THREE.CullFaceNone );
 
     container.appendChild( renderer.domElement );
 }
-function postProcessing(){
-
+function initPostprocessing(){
+    //超级采样抗锯齿（SSAA）>多重采样抗锯齿（MSAA）>快速近似抗锯齿(FXAA)
     //SSAA
-   /* composer2 = new THREE.EffectComposer( renderer );
+
+    composer2 = new THREE.EffectComposer( renderer );
+
     ssaaRenderPassP = new THREE.SSAARenderPass( scene, camera );
-    ssaaRenderPassP.sampleLevel = params.sampleLevel;
+    ssaaRenderPassP.sampleLevel = params2.sampleLevel;
     composer2.addPass( ssaaRenderPassP );
+
+   /* taaRenderPass = new THREE.TAARenderPass( scene, camera );
+    taaRenderPass.sampleLevel = param.TAASampleLevel;
+    composer2.addPass( taaRenderPass );*/
+
+     renderPass = new THREE.RenderPass( scene, camera );
+     renderPass.enabled = false;
+    composer2.addPass( renderPass );
+
     copyPass2 = new THREE.ShaderPass( THREE.CopyShader );
     copyPass2.renderToScreen = true;
-    composer2.addPass( copyPass2 );*/
+    composer2.addPass( copyPass2 );
 
 
-    //tonMaping
-    //在render循环中，使用EffectComposer渲染场景、应用通道，并输出结果
-    composer = new THREE.EffectComposer( renderer );
-    composer.setSize( window.innerWidth, window.innerHeight );
+    //SMAA
 
-    //RenderPass通道，这个通道会渲染场景，但不会将渲染结果输出到屏幕上。
-    //RenderPass/该通道在指定的场景和相机的基础上渲染出一个新场景
+   /* composer3 = new THREE.EffectComposer( renderer );
+    composer3.addPass( new THREE.RenderPass( scene, camera ) );
+
+    pass = new THREE.SMAAPass( window.innerWidth, window.innerHeight );
+    pass.renderToScreen = true;
+    composer3.addPass( pass );*/
+
+
+    /*
+        //tonMaping
+        //在render循环中，使用EffectComposer渲染场景、应用通道，并输出结果
+        composer = new THREE.EffectComposer( renderer );
+        composer.setSize( window.innerWidth, window.innerHeight );
+
+        //RenderPass通道，这个通道会渲染场景，但不会将渲染结果输出到屏幕上。
+        //RenderPass/该通道在指定的场景和相机的基础上渲染出一个新场景
+        var renderScene = new THREE.RenderPass( scene, camera );
+        composer.addPass( renderScene );
+
+        // ShaderPass/使用该通道你可以传入一个自定义的着色器，用来生成高级的、自定义的后期处理通道
+        //传入了CopyShader着色器，用于拷贝渲染结果
+        var copyPass = new THREE.ShaderPass( THREE.CopyShader );
+        copyPass.renderToScreen = true;
+        composer.addPass( copyPass );
+    */
+
+/*
+    composer3 = new THREE.EffectComposer( renderer );
+    composer3.setSize( window.innerWidth, window.innerHeight );
+
     var renderScene = new THREE.RenderPass( scene, camera );
-    composer.addPass( renderScene );
+    composer3.addPass( renderScene );
 
-    // ShaderPass/使用该通道你可以传入一个自定义的着色器，用来生成高级的、自定义的后期处理通道
-    //传入了CopyShader着色器，用于拷贝渲染结果
     var copyPass = new THREE.ShaderPass( THREE.CopyShader );
     copyPass.renderToScreen = true;
-    composer.addPass( copyPass );
-
+    composer3.addPass( copyPass );*/
+    //
 
 }
 function loadObj(sName) {
@@ -287,8 +339,8 @@ function loadObj(sName) {
     //group.position.y = 50;
     scene.add(group);
 
- /*   var groundMirror = new THREE.Mirror( 236, 167, {
-        clipBias: 0.001,
+    var groundMirror = new THREE.Mirror( 236, 167, {
+        clipBias: 0.003,
         textureWidth: WIDTH * window.devicePixelRatio,
         textureHeight: HEIGHT * window.devicePixelRatio,
         color: 0x777777
@@ -296,8 +348,7 @@ function loadObj(sName) {
     groundMirror.rotateX( - Math.PI / 2 );
     groundMirror.material.side = THREE.DoubleSide;
     groundMirror.receiveShadow=true;
-    groundMirror.castShadow = true;
-    group.add( groundMirror );*/
+    group.add( groundMirror );
 
     //make floor
     //var planeGeo = new THREE.PlaneBufferGeometry( 236, 167 );
@@ -307,77 +358,137 @@ function loadObj(sName) {
     // groundMirror.rotateX( Math.PI / 2 );
     // group.add(mirrorMesh);
 
-    toneMaping();
+
     // texture
 
-    var manager = new THREE.LoadingManager();
+  var manager = new THREE.LoadingManager();
     manager.onProgress = function ( item, loaded, total ) {
 
         console.log( item, loaded, total );
     };
 
-    var texture = new THREE.Texture();
-    var onProgress = function ( xhr ) {
-        if ( xhr.lengthComputable ) {
-            var percentComplete = xhr.loaded / xhr.total * 100;
-            console.log( Math.round(percentComplete, 2) + '% downloaded' );
-        }
-    };
-    var onError = function ( xhr ) {
-    };
+        var texture = new THREE.Texture();
+        var onProgress = function ( xhr ) {
+            if ( xhr.lengthComputable ) {
+                var percentComplete = xhr.loaded / xhr.total * 100;
+                console.log( Math.round(percentComplete, 2) + '% downloaded' );
+            }
+        };
+        var onError = function ( xhr ) {
+        };
 
-    var loader = new THREE.ImageLoader( manager );
-    var imgUrl="3d_files/Mirror/"+sName+"/";
-    loader.load( imgUrl+"maps/"+sName+'.jpg', function ( image ) {
-        texture.image = image;
-        texture.needsUpdate = true;
+       var loader = new THREE.ImageLoader( manager );
+        var imgUrl="3d_files/obj/"+sName+"/";
+        loader.load( imgUrl+"maps/"+sName+'.jpg', function ( image ) {
+            texture.image = image;
+            texture.needsUpdate = true;
 
+        } );
+
+    standardMaterial = new THREE.MeshStandardMaterial( {
+        bumpScale: - 0.05,
+        color: 0xffffff,
+        metalness: 0.9,
+        roughness: 0.8,
+        premultipliedAlpha: true,
+        transparent: true
+    } );
+/*    standardMaterial2 = new THREE.MeshStandardMaterial( {
+        map: null,
+        roughnessMap: null,
+        color: 0x888888,
+        metalness: 0.0,
+        roughness: 1.0,
+        side: THREE.BackSide
+    } );*/
+    var textureLoader = new THREE.TextureLoader();
+
+    textureLoader.load( "3d_files/obj/shinei-dimian-01/maps/shinei-dimian-01.jpg", function( map ) {
+        map.wrapS =  map.wrapT = THREE.RepeatWrapping;
+        map.anisotropy = 4;
+        map.repeat.set( 1, 1 );
+        standardMaterial.map = map;
+        standardMaterial.needsUpdate = true;
+        standardMaterial.magFilter = THREE.NearestFilter;
+        standardMaterial.format = THREE.RGBFormat;
+    } );
+    textureLoader.load( "3d_files/obj/shinei-dimian-01/maps/shinei-dimian-bump.jpg", function( map ) {
+        map.wrapS =  map.wrapT = THREE.RepeatWrapping;
+        map.anisotropy = 4;
+        map.repeat.set( 1, 1 );
+        standardMaterial.bumpMap = map;
+        standardMaterial.needsUpdate = true;
+        standardMaterial.magFilter = THREE.NearestFilter;
+        standardMaterial.format = THREE.RGBFormat;
+    } );
+    textureLoader.load( "3d_files/obj/shinei-dimian-01/maps/shinei-dimian-01.jpg", function( map ) {
+        map.wrapS =  map.wrapT = THREE.RepeatWrapping;
+        map.anisotropy = 4;
+        map.repeat.set( 1, 1 );
+        standardMaterial.roughnessMap = map;
+        standardMaterial.needsUpdate = true;
+        standardMaterial.magFilter = THREE.NearestFilter;
+        standardMaterial.format = THREE.RGBFormat;
     } );
 
-   /* var textureLoader2 = new THREE.TextureLoader();
 
-    lightMap = textureLoader2.load( "3d_files/Mirror/shinei-dimian-01/maps/lightmap-ao-shadow.png" );*/
+
+/*    var geometry = new THREE.BoxBufferGeometry( 236, 2, 167 );
+    var mesh = new THREE.Mesh( geometry, floorMaterial );
+    mesh.position.y = 50;
+    mesh.rotation.x = - Math.PI * 0.5;
+    mesh.receiveShadow = true;
+    scene.add( mesh );*/
+
+
+/*    var hdrpath = "3d_files/texture/cube/pisaHDR/";
+    var hdrformat = '.hdr';
+    var hdrurls = [
+        hdrpath + 'px' + hdrformat, hdrpath + 'nx' + hdrformat,
+        hdrpath + 'py' + hdrformat, hdrpath + 'ny' + hdrformat,
+        hdrpath + 'pz' + hdrformat, hdrpath + 'nz' + hdrformat
+    ];
+
+
+    var hdrCubeMap = new THREE.HDRCubeTextureLoader().load( THREE.UnsignedByteType, hdrurls, function ( hdrCubeMap ) {
+
+        var pmremGenerator = new THREE.PMREMGenerator( hdrCubeMap );
+        pmremGenerator.update( renderer );
+
+        var pmremCubeUVPacker = new THREE.PMREMCubeUVPacker( pmremGenerator.cubeLods );
+        pmremCubeUVPacker.update( renderer );
+
+        //standardMaterial.envMap = pmremCubeUVPacker.CubeUVRenderTarget.texture;
+        standardMaterial.needsUpdate = true;
+
+    } );*/
+
 
     var loader = new THREE.OBJLoader( manager );
-    var sObjUrl="3d_files/Mirror/"+sName+"/";
+    var sObjUrl="3d_files/obj/"+sName+"/";
     loader.load( sObjUrl+sName+'.obj', function ( object ) {
-
-      // var loader = new THREE.TextureLoader();
-      //  loader.setPath( 'models/obj/vive-controller/' );
-
-        var controller = object.children[ 0 ];
-      //  controller.material.map = loader.load( 'onepointfive_texture.png' );
-      //  controller.material.specularMap = loader.load( 'onepointfive_spec.png' );
-        controller.castShadow = true;
-        controller.receiveShadow = true;
 
         object.traverse( function ( child ) {
 
-            var scale = 1.0;
             if ( child instanceof THREE.Mesh ) {
-                child.geometry.center();
-                console.log(child.geometry.center());
-                child.geometry.computeBoundingSphere();
-                //scale = 0.2*child.geometry.boundingSphere.radius;
-                //child.material = gBgMirror.material;
+
+              //  child.material = standardMaterial;
                 child.material.needsUpdate = true;
                 child.material.map = texture;
-                //child.material.envMap = textureCube;
-               // child.material.mapLight = lightMap;
+                child.material.envMap = textureCube;
                 child.material.transparent=true;
                 child.material.opacity= 0.8;
                 child.receiveShadow =true;
-                child.castShadow = true;
+               // child.castShadow = true;
                 child.position.set(-97,0,68);
                 child.scale.x =  child.scale.y =  child.scale.z = 0.01;
                 child.updateMatrix();
+
             }
 
         } );
-   /*     object.scale.x /= scale;
-        object.scale.y /= scale;
-        object.scale.z /= scale;*/
-        object.position.y = -2;
+
+        object.position.y = 0;
         group.add( object );
 
     }, onProgress, onError );
@@ -503,94 +614,6 @@ function backgroundFloor(){
     mesh.receiveShadow = true;
     scene.add( mesh );
 }
-function loadModel() {
-
-    if(gModelList.length<(gnModelIndex+1))
-    {
-        return;
-    }
-
-    var onProgress = function ( xhr ) {
-        if ( xhr.lengthComputable ) {
-            var percentComplete = xhr.loaded / xhr.total * 100;
-            console.log( Math.round(percentComplete, 2) + '% downloaded' );
-        }
-    };
-
-    var onError = function ( xhr ) { };
-
-   // var texture = new THREE.Texture( generateTexture() );
-    //texture.needsUpdate = true;
-
-    THREE.Loader.Handlers.add( /\.dds$/i, new THREE.DDSLoader() );
-
-    var mtlLoader = new THREE.MTLLoader();
-    var sObjUrl="3d_files/obj/"+jsObj.model+"/";
-    mtlLoader.setPath(sObjUrl);
-    mtlLoader.load( jsObj.model+'.mtl', function( materials ) {
-        //console.log(materials);
-       //材质导入调用这个回调函数（钩子函数）
-        materials.preload();
-        //materials.transparent = true;
-       // materials.opacity = .8;
-        //materials.map = texture;
-       // materials.color = 0xddddd;
-        // materials.specular = 0x009900;
-        // materials.shininess = 30;
-        // materials.flatShading = true;
-        // materials.emissive = 0xff0000;
-        // materials.shininess = 10;
-        //materials.flatShading = THREE.SmoothShading;
-        //materials.shininess = 0;
-
-        var objLoader = new THREE.OBJLoader();
-        objLoader.setMaterials( materials );
-        var sObjUrl="3d_files/obj/"+jsObj.model+"/";
-        objLoader.setPath(sObjUrl);
-        objLoader.load(jsObj.model+'.obj', function ( object ) {
-
-            object.traverse( function ( child ) {
-
-                if ( child instanceof THREE.Mesh ) {
-                    child.castShadow =true;
-                    child.receiveShadow =true;
-                    child.updateMatrix();
-                    child.material.side = THREE.DoubleSide;
-                    //child.material.emissive.r=0;//设置rgb通道R通道颜色
-                    //child.material.emissive.g=0.01;//设置rgb通道G通道颜色
-                   // child.material.emissive.b=0.05;//设置rgb通道B通道颜色
-                    //child.material.transparent=true;
-                    //child.material.opacity=0;
-                    child.material.shading=THREE.SmoothShading;
-
-                }
-                if(jsObj.isSelect){
-                    gModeMap[object.uuid]=jsObj;
-                    gSelectList.push(object);
-                }
-
-            } );
-
-            object.emissive=0xffffff;//自发光颜色
-            object.ambient=0xffffff;//环境光颜色
-            object.position.set(-97, 0, 68);
-            object.scale.x = object.scale.y = object.scale.z = 0.01;
-            object.name="home";//名称
-            //var boxHelper = new THREE.BoundingBoxHelper(object, 0x999999);
-            //scene.add(boxHelper);
-            if(jsObj===objKzt ){
-                object.position.set(-97, 1, 68);
-                object.updateMatrix();
-            }
-            scene.add( object );
-            gnModelIndex++;
-            loadModel();
-
-        }, onProgress, onError );
-
-    });
-
-}
 //模型数据加载重构
 function loadSerialized(data) {
 
@@ -610,6 +633,7 @@ function loadSerialized(data) {
 }
 function loadModel2(options){
 
+    var jsObj=data.items[gnModelIndex];
 
     THREE.Loader.Handlers.add( /\.dds$/i, new THREE.DDSLoader() );
     var mtlLoader = new THREE.MTLLoader();
@@ -624,12 +648,7 @@ function loadModel2(options){
     });
 
     var completeCallback =  function(object){
-        object.emissive=0xffffff;//自发光颜色
-        object.ambient=0xffffff;//环境光颜色
-        object.position.set(-97, 0, 68);
-        object.scale.x = object.scale.y = object.scale.z = 0.01;
-        //var boxHelper = new THREE.BoundingBoxHelper(object, 0x999999);
-        //scene.add(boxHelper);
+
         object.traverse( function ( child ) {
             if ( child instanceof THREE.Mesh ) {
                 child.castShadow =true;
@@ -641,31 +660,39 @@ function loadModel2(options){
                 // child.material.emissive.b=0.05;//设置rgb通道B通道颜色
                 //child.material.transparent=true;
                 //child.material.opacity=0;
-                child.material.shading = THREE.SmoothShading;
+                child.material.SmoothShading = true;
 
+                if(child.name === "Arc22"){
+                       child.position.set(0,200,0);
+                       console.log(child);
+                   }
+
+                if(child.name === "Rectangle29872"){
+                    child.position.y = -2;
+                   // child.material.needsUpdate = true;
+                   // child.material.map = texture;
+                    child.material.transparent=true;
+                    child.material.opacity= 0.8;
+                   // loadObj();
+                }
             }
         } );
 
-      for ( var i = 0; i <object.length; i++ ) {
-            var object = object[i];
-           alert(object)
-          console.log(11111111111111111111111111);
-        }
+        //object.emissive=0xffffff;//自发光颜色
+       // object.ambient=0xffffff;//环境光颜色
+        object.position.set(-97, 0, 68);
+        object.scale.x = object.scale.y = object.scale.z = 0.01;
+        object.updateMatrix();
+        //var boxHelper = new THREE.BoundingBoxHelper(object, 0x999999);
+        //scene.add(boxHelper);
 
-
-         var thisObj = options.thisObj;
+        var thisObj = options.thisObj;
          if(thisObj.isSelect){
                gModeMap[object.uuid] = thisObj ;
                gSelectList.push(object);
            }
 
-
-        //var floorObj = data.items[data.items.length-1];
-     /*   if(object.materialLibraries = "shinei-dimian-01"){
-            var floorObj =  object.children["shinei-dimian-01"];
-            floorObj.position.set(-97, 100, 68);
-            floorObj.updateMatrix();
-        }*/
+        gnModelIndex++;
         scene.add( object );
     };
 
@@ -929,7 +956,7 @@ function initLight() {
 }
 function initEvent(){
     window.addEventListener( 'resize', onWindowResize, false );
-    document.addEventListener('click', onDocumentClick, false);
+    //document.addEventListener('click', onDocumentClick, false);
     document.addEventListener( 'keydown', onKeyDown, false );
     document.addEventListener( 'keyup', onKeyUp, false );
     document.addEventListener('mousemove', onDocumentMouseMove, false);
@@ -998,9 +1025,31 @@ function onWindowResize() {
     // cameraCube.aspect = window.innerWidth / window.innerHeight;
     //cameraCube.updateProjectionMatrix();
     //controls1.handleResize();
-   composer.setSize(  window.innerWidth, window.innerHeight );
-   // composer2.setSize(  window.innerWidth, window.innerHeight );
 
+    //SSAA
+    if (composer2){
+        composer2.setSize(  window.innerWidth, window.innerHeight );
+    }
+
+/*   //SMAA
+    var width = window.innerWidth;
+    var height = window.innerHeight;
+
+    var pixelRatio = renderer.getPixelRatio();
+    var newWidth  = Math.floor( width / pixelRatio ) || 1;
+    var newHeight = Math.floor( height / pixelRatio ) || 1;
+    composer3.setSize( newWidth, newHeight );*/
+
+
+//TAA SSAA
+ /*   var width = window.innerWidth;
+    var height = window.innerHeight;
+
+    var pixelRatio = renderer.getPixelRatio();
+    var newWidth  = Math.floor( width / pixelRatio ) || 1;
+    var newHeight = Math.floor( height / pixelRatio ) || 1;
+    composer2.setSize( newWidth, newHeight );
+*/
 
     /*  if (controls1 && controls1.enabled){
      controls1.handleResize();
